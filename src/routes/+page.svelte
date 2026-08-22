@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { db } from '$lib/db';
 
-  let text = '';
-  let inputElement;
+  let text = $state(''); // Declare text as reactive state
+  let inputElement: HTMLInputElement;
+  let currentDocument: db.Document | null = null;
 
   // Keep the input focused to prevent keyboard flicker and layout shifts on mobile
   function keepFocus() {
@@ -11,8 +13,23 @@
     }
   }
 
-  onMount(() => {
+  onMount(async () => {
+    // Load or create the 'Scratch' document
+    let doc = await db.documents.where('name').equals('Scratch').first();
+    if (!doc) {
+      const id = await db.documents.add({ name: 'Scratch', content: '' });
+      doc = { id, name: 'Scratch', content: '' };
+    }
+    currentDocument = doc;
+    text = doc.content;
     keepFocus();
+  });
+
+  // Update the document in the database whenever text changes using $effect
+  $effect(() => {
+    if (currentDocument) {
+      db.documents.update(currentDocument.id, { content: text });
+    }
   });
 </script>
 
