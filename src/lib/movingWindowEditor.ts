@@ -3,7 +3,7 @@ export class MovingWindowEditor {
   private cursor: number;
   private windowSize: number;
   private maxWindowSize: number;
-  private start: number;
+  private start!: number;
 
   constructor(
     text: string = "",

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { db } from '$lib/db';
+  import { db, type Document as DbDocument } from '$lib/db';
   import { MovingWindowEditor } from '$lib/movingWindowEditor';
   import { StepBack, StepForward, Search, X } from '@lucide/svelte';
 
@@ -8,13 +8,12 @@
   let inputText = $state(''); // This will hold the value of the input field
   let windowRange = $state<[number, number]>([0, 0]); // Track current window bounds reactively
   let inputElement: HTMLInputElement;
-  let currentDocument: db.Document | null = null;
-  let editor: MovingWindowEditor | null = null;
+  let currentDocument = $state<DbDocument | null>(null);
+  let editor = $state<MovingWindowEditor | null>(null);
   let mode = $state<'INPUT' | 'SEARCH' | null>(null); // Tracks whether the omnibox is in INPUT or SEARCH mode
   let title = $state('');
-  let searchMatches: { text: string; start: number; end: number }[] = [];
+  let searchMatches = $state<{ text: string; start: number; end: number }[]>([]);
   let searchQuery = $state('');
-  let previousInputText = ''; // To store the input text before entering search mode
 
   // Keep the input focused to prevent keyboard flicker and layout shifts on mobile
   function keepFocus(element: HTMLInputElement | null) {
@@ -46,14 +45,12 @@
 
   // Sync the full editor text to the database whenever it changes
   $effect(() => {
-    if (editorText) {
+    if (editorText && currentDocument && editor) {
       db.documents.update(currentDocument.id, { content: editor.getText() });
       title = currentDocument.name + ' – Omniedit';
     }
 
     if (!mode && inputText !== '') {
-      // Whenever the input value changes, update the editor and set
-      // the mode to "INPUT".
       mode = 'INPUT';
     }
   });
@@ -87,15 +84,22 @@
     }
 
     const results: { text: string; start: number; end: number }[] = [];
-    const regex = new RegExp(searchQuery, 'gi'); // Global and case-insensitive search
-    let match;
+    try {
+      const regex = new RegExp(searchQuery, 'gi'); // Global and case-insensitive search
+      let match: RegExpExecArray | null;
 
-    while ((match = regex.exec(editor.getText())) !== null) {
-      results.push({
-        text: match[0],
-        start: match.index,
-        end: regex.lastIndex,
-      });
+      while ((match = regex.exec(editor.getText())) !== null) {
+        results.push({
+          text: match[0],
+          start: match.index,
+          end: regex.lastIndex,
+        });
+        if (regex.lastIndex === match.index) {
+          regex.lastIndex++; // Avoid infinite loop on zero-width matches
+        }
+      }
+    } catch {
+      // Invalid regex, ignore search
     }
     searchMatches = results;
   }
@@ -105,26 +109,65 @@
       editor.setCursor(start);
       editor.moveCursorByWindowSize(1); // Move window to start with the match
       updatePreview();
+      searchQuery = '';
+      searchMatches = [];
       mode = 'INPUT'; // Switch back to input mode
       keepFocus(inputElement); // Focus the main input
     }
   }
 
   function enterSearchMode() {
-    previousInputText = inputText; // Store current input
     searchQuery = ''; // Clear search query
     inputText = ''; // Clear input for search term
+    searchMatches = [];
     mode = 'SEARCH';
-    handleSearch(); // Perform initial search if there's a query already
     keepFocus(inputElement);
   }
 
   function cancelSearch() {
-    inputText = previousInputText; // Restore previous input
     searchQuery = '';
     searchMatches = [];
     mode = 'INPUT';
+    if (editor) {
+      updatePreview();
+    }
     keepFocus(inputElement);
+  }
+
+  type HighlightSegment = { text: string; isMatch: boolean; start?: number };
+
+  function getSearchSegments(): HighlightSegment[] {
+    if (!editorText) return [];
+    if (!searchMatches || searchMatches.length === 0) {
+      return [{ text: editorText, isMatch: false }];
+    }
+
+    const segments: HighlightSegment[] = [];
+    let lastIndex = 0;
+
+    for (const match of searchMatches) {
+      if (match.start > lastIndex) {
+        segments.push({
+          text: editorText.substring(lastIndex, match.start),
+          isMatch: false,
+        });
+      }
+      segments.push({
+        text: editorText.substring(match.start, match.end),
+        isMatch: true,
+        start: match.start,
+      });
+      lastIndex = match.end;
+    }
+
+    if (lastIndex < editorText.length) {
+      segments.push({
+        text: editorText.substring(lastIndex),
+        isMatch: false,
+      });
+    }
+
+    return segments;
   }
 </script>
 
@@ -173,32 +216,23 @@
   <!-- mt-5 accounts for the fixed navbar height -->
   <main class="section p-3 is-flex-grow-1" style="overflow-y: auto;">
     <div class="content" style="white-space: pre-wrap;">
-      {#if mode === 'INPUT'}
-        {#if editor}
-          {@html editorText.substring(0, windowRange[0])}
-          <strong>{editorText.substring(windowRange[0], windowRange[1])}</strong>
-          {@html editorText.substring(windowRange[1])}
-        {/if}
-      {:else if mode === 'SEARCH'}
-        {#if editor}
-          {#each searchMatches as match (match.start)}
-            {#if match.start < windowRange[0]}
-              {editorText.substring(match.start, Math.min(match.end, windowRange[0]))}
-            {:else if match.start >= windowRange[0] && match.start < windowRange[1]}
-              <a href="#" onclick={event => {event.preventDefault(); selectMatch(match.start)}}>
-                <strong>{editorText.substring(match.start, Math.min(match.end, windowRange[1]))}</strong>
-              </a>
-            {:else if match.end > windowRange[0] && match.start < windowRange[1]}
-              <a href="#" onclick={event => {event.preventDefault(); selectMatch(match.start)}}>
-                <strong>{editorText.substring(Math.max(match.start, windowRange[0]), Math.min(match.end, windowRange[1]))}</strong>
-              </a>
-            {:else if match.start >= windowRange[1]}
-              {editorText.substring(windowRange[1], Math.min(match.end, editorText.length))}
-            {/if}
-          {/each}
-          {#if !searchMatches.length}
-            <span class="has-text-info">No matches found.</span>
+      {#if mode === 'SEARCH'}
+        {#each getSearchSegments() as segment}
+          {#if segment.isMatch && segment.start !== undefined}
+            <button
+              type="button"
+              class="button is-text p-0 is-inline border-0 text-left font-weight-bold style-match-button"
+              onclick={() => selectMatch(segment.start!)}
+            >
+              <strong>{segment.text}</strong>
+            </button>
+          {:else}
+            {segment.text}
           {/if}
+        {/each}
+      {:else if mode === 'INPUT' || mode === null}
+        {#if editor}
+          {editorText.substring(0, windowRange[0])}<strong>{editorText.substring(windowRange[0], windowRange[1])}</strong>{editorText.substring(windowRange[1])}
         {/if}
       {:else}
         <span class="has-text-info">Preview will appear here…</span>
@@ -218,23 +252,26 @@
           placeholder="Type text or commands..."
           onblur={() => keepFocus(inputElement)}
           oninput={(e) => {
-            if (editor) {
-              editor.update(e.target.value);
-              // Update the preview text to reflect the full content after the update
-              updatePreview();
-            }
-            // If in search mode, update search results as user types
+            const target = e.target as HTMLInputElement;
             if (mode === 'SEARCH') {
-              searchQuery = inputText; // Update searchQuery from inputText
+              searchQuery = target.value;
               handleSearch();
+            } else {
+              if (editor) {
+                editor.update(target.value);
+                updatePreview();
+              }
             }
           }}
           onkeydown={(e) => {
             if (e.key === 'Escape') {
-              mode = null;
-              keepFocus(inputElement);
+              if (mode === 'SEARCH') {
+                cancelSearch();
+              } else {
+                mode = null;
+                keepFocus(inputElement);
+              }
             } else if (mode === 'SEARCH' && e.key === 'Enter') {
-              // If in search mode and Enter is pressed, perform search
               handleSearch();
             }
           }}
