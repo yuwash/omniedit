@@ -9,6 +9,7 @@
   let currentDocument: db.Document | null = null;
   let editor: MovingWindowEditor | null = null;
   let mode = $state<'INPUT' | null>(null); // Tracks whether the omnibox is in INPUT mode
+  let title = $state('');
 
   // Keep the input focused to prevent keyboard flicker and layout shifts on mobile
   function keepFocus() {
@@ -41,6 +42,7 @@
   $effect(() => {
     if (editorText) {
       db.documents.update(currentDocument.id, { content: editor.getText() });
+      title = currentDocument.name + ' – Omniedit';
     }
 
     if (!mode && inputText !== '') {
@@ -52,6 +54,7 @@
 </script>
 
 <svelte:head>
+  <title>{title}</title>
   <!-- Bulma CSS via CDN -->
   <link
     rel="stylesheet"
@@ -70,7 +73,9 @@
   <!-- Header: Fixed height, tool button area -->
   <nav class="navbar is-small px-3" style="min-height: 3rem;">
     <div class="navbar-brand">
-      <!-- Tool buttons will go here in future versions -->
+      <h1 class="title is-size-7 has-text-weight-normal">
+        {title}
+      </h1>
     </div>
   </nav>
 
