@@ -3,7 +3,7 @@ export class MovingWindowEditor {
   private cursor: number;
   private windowSize: number;
   private maxWindowSize: number;
-  private start: number;
+  private start!: number;
 
   constructor(
     text: string = "",
@@ -77,12 +77,6 @@ export class MovingWindowEditor {
       targetCursor + this.windowSize
       // Temporarily go forward another window to find the word boundary.
     );
-    if (0 < delta && this.text.length <= tempCursor) {
-      // Reach the last window by forward movement which
-      // would otherwise be unreachable.
-      this.setCursor(this.text.length);
-      return;
-    }
     this.setCursor(tempCursor);
     if (0 < this.start) {
       this.setCursor(this.start);
