@@ -124,4 +124,39 @@ export class MovingWindowEditor {
     // The cursor moves to the end of the newly inserted text
     this.setCursor(this.start + newWindowText.length);
   }
+
+  public get windowIsAtLineStart(): boolean {
+    return (
+      this.start === 0
+      || this.text[this.start - 1] === '\n'
+    );
+  }
+
+  public mergeWithPreviousLine(): void {
+    const previousLineEnd = this.text.lastIndexOf('\n', Math.max(0, this.cursor - 1));
+    const currentWindow = this.getWindow();
+    const before = this.text.substring(0, previousLineEnd);  // Without the newline
+    const after = this.text.substring(previousLineEnd + 1);
+    this.text = before + (
+      (before[before.length - 1] === '\n' || after[0] === '\n') ? '' : ' '
+    ) + after;
+    this.setCursor(previousLineEnd);
+  }
+
+  public splitLine(position: number): void {
+    const originalBefore = this.text.substring(0, position);
+    const deletableTrailingSpace = (
+      // Delete the trailing space if there’s exactly one.
+      /[^ ] $/.test(originalBefore)
+    );
+    const before = (
+      deletableTrailingSpace
+      ? originalBefore.substring(0, originalBefore.length - 1)
+      : originalBefore
+    );
+    const after = this.text.substring(position);
+    this.text = before + '\n' + after;
+    this.setCursor(deletableTrailingSpace ? position -1 : position);
+    this.moveCursorByWindowSize(1);
+  }
 }

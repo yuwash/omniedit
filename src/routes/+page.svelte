@@ -106,8 +106,13 @@
 
   function selectMatch(start: number) {
     if (editor) {
-      editor.setCursor(start);
-      editor.moveCursorByWindowSize(1); // Move window to start with the match
+      // Position cursor past the match so the match is included in the window
+      const text = editor.getText();
+      const nextLineBreak = text.indexOf('\n', start);
+      const lineEnd = nextLineBreak !== -1 ? nextLineBreak : text.length;
+      // Ideal cursor position is start + 50 or lineEnd
+      const targetCursor = Math.min(lineEnd, Math.max(start + 1, start + 50));
+      editor.setCursor(targetCursor);
       updatePreview();
       searchQuery = '';
       searchMatches = [];
@@ -135,6 +140,72 @@
   }
 
   type HighlightSegment = { text: string; isMatch: boolean; start?: number };
+
+  type FormattedSegment =
+    | { type: 'normal'; text: string }
+    | { type: 'strong'; text: string }
+    | { type: 'match'; text: string; start: number };
+
+  function getRenderedParagraphs(): FormattedSegment[][] {
+    if (mode === 'SEARCH') {
+      const rawSegments = getSearchSegments();
+      const paragraphs: FormattedSegment[][] = [[]];
+      for (const seg of rawSegments) {
+        const parts = seg.text.split('\n');
+        for (let i = 0; i < parts.length; i++) {
+          if (i > 0) {
+            paragraphs.push([]);
+          }
+          if (parts[i]) {
+            if (seg.isMatch && seg.start !== undefined) {
+              paragraphs[paragraphs.length - 1].push({
+                type: 'match',
+                text: parts[i],
+                start: seg.start,
+              });
+            } else {
+              paragraphs[paragraphs.length - 1].push({
+                type: 'normal',
+                text: parts[i],
+              });
+            }
+          }
+        }
+      }
+      return paragraphs;
+    }
+
+    if (!editor) return [];
+
+    const [start, end] = windowRange;
+    const before = editorText.substring(0, start);
+    const windowed = editorText.substring(start, end);
+    const after = editorText.substring(end);
+
+    const segments: Array<{ type: 'normal' | 'strong'; text: string }> = [];
+    if (before) segments.push({ type: 'normal', text: before });
+    if (windowed) segments.push({ type: 'strong', text: windowed });
+    if (after) segments.push({ type: 'normal', text: after });
+
+    const paragraphs: FormattedSegment[][] = [[]];
+    for (const seg of segments) {
+      const parts = seg.text.split('\n');
+      for (let i = 0; i < parts.length; i++) {
+        if (i > 0) {
+          paragraphs.push([]);
+        }
+        if (parts[i]) {
+          paragraphs[paragraphs.length - 1].push(
+            seg.type === 'strong'
+              ? { type: 'strong', text: parts[i] }
+              : { type: 'normal', text: parts[i] }
+          );
+        }
+      }
+    }
+
+    return paragraphs;
+  }
 
   function getSearchSegments(): HighlightSegment[] {
     if (!editorText) return [];
@@ -215,27 +286,33 @@
   <!-- Preview Area: Expands to fill all remaining space -->
   <!-- mt-5 accounts for the fixed navbar height -->
   <main class="section p-3 is-flex-grow-1" style="overflow-y: auto;">
-    <div class="content" style="white-space: pre-wrap;">
-      {#if mode === 'SEARCH'}
-        {#each getSearchSegments() as segment}
-          {#if segment.isMatch && segment.start !== undefined}
-            <button
-              type="button"
-              class="button is-text p-0 is-inline border-0 text-left font-weight-bold style-match-button"
-              onclick={() => selectMatch(segment.start!)}
-            >
-              <strong>{segment.text}</strong>
-            </button>
-          {:else}
-            {segment.text}
-          {/if}
+    <div class="content">
+      {#if mode === 'SEARCH' || mode === 'INPUT' || mode === null}
+        {#each getRenderedParagraphs() as paragraph}
+          <p>
+            {#if paragraph.length === 0}
+              <br />
+            {:else}
+              {#each paragraph as seg}
+                {#if seg.type === 'match'}
+                  <button
+                    type="button"
+                    class="button is-text p-0 is-inline border-0 text-left font-weight-bold style-match-button"
+                    onclick={() => selectMatch(seg.start)}
+                  >
+                    <strong>{seg.text}</strong>
+                  </button>
+                {:else if seg.type === 'strong'}
+                  <strong>{seg.text}</strong>
+                {:else}
+                  {seg.text}
+                {/if}
+              {/each}
+            {/if}
+          </p>
         {/each}
-      {:else if mode === 'INPUT' || mode === null}
-        {#if editor}
-          {editorText.substring(0, windowRange[0])}<strong>{editorText.substring(windowRange[0], windowRange[1])}</strong>{editorText.substring(windowRange[1])}
-        {/if}
       {:else}
-        <span class="has-text-info">Preview will appear here…</span>
+        <p><span class="has-text-info">Preview will appear here…</span></p>
       {/if}
     </div>
   </main>
@@ -273,6 +350,29 @@
               }
             } else if (mode === 'SEARCH' && e.key === 'Enter') {
               handleSearch();
+            } else if (mode === 'INPUT' && e.key === 'Enter') {
+              // Insert newline at current window selection position in omnibox
+              if (editor) {
+                const target = e.target as HTMLInputElement;
+                const selectionStart = target.selectionStart ?? target.value.length;
+                const windowStart = editor.getWindowStartEnd()[0];
+                const insertPos = windowStart + selectionStart;
+                editor.splitLine(insertPos);
+                updatePreview();
+                keepFocus(inputElement);
+              }
+            } else if (mode === 'INPUT' && e.key === 'Backspace') {
+              if (editor) {
+                const target = e.target as HTMLInputElement;
+                const selectionStart = target.selectionStart ?? 0;
+                const selectionEnd = target.selectionEnd ?? 0;
+                // Check if omnibox is empty and selection is at 0
+                if (selectionStart === 0 && selectionEnd === 0 && editor.windowIsAtLineStart) {
+                  editor.mergeWithPreviousLine();
+                  updatePreview();
+                  keepFocus(inputElement);
+                }
+              }
             }
           }}
         />
