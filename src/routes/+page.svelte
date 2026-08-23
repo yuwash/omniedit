@@ -71,17 +71,13 @@
 <div class="is-flex is-flex-direction-column" style="height: 100vh; overflow: hidden;">
   
   <!-- Header: Fixed height, tool button area -->
-  <nav class="navbar is-small px-3" style="min-height: 3rem;">
-    <div class="navbar-brand">
-      <h1 class="title is-size-7 has-text-weight-normal">
-        {title}
-      </h1>
-    </div>
-  </nav>
+  <h1 class="title is-size-7 my-1 has-text-weight-normal">
+    {title}
+  </h1>
 
   <!-- Preview Area: Expands to fill all remaining space -->
   <!-- mt-5 accounts for the fixed navbar height -->
-  <main class="section mt-5 px-3 py-4 is-flex-grow-1" style="overflow-y: auto;">
+  <main class="section p-3 is-flex-grow-1" style="overflow-y: auto;">
     <div class="content" style="white-space: pre-wrap;">
       {#if mode === 'INPUT'}
         {#if editor}
