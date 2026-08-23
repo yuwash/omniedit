@@ -84,7 +84,11 @@
   <main class="section mt-5 px-3 py-4 is-flex-grow-1" style="overflow-y: auto;">
     <div class="content" style="white-space: pre-wrap;">
       {#if mode === 'INPUT'}
-        {editorText}
+        {#if editor}
+          {@html editorText.substring(0, editor.getWindowStartEnd()[0])}
+          <strong>{editorText.substring(editor.getWindowStartEnd()[0], editor.getWindowStartEnd()[1])}</strong>
+          {@html editorText.substring(editor.getWindowStartEnd()[1])}
+        {/if}
       {:else}
         <span class="has-text-info">Preview will appear here…</span>
       {/if}
