@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { db } from '$lib/db';
   import { MovingWindowEditor } from '$lib/movingWindowEditor';
+  import { StepBack, StepForward } from '@lucide/svelte';
 
   let editorText = $state(''); // This will hold the full text for the preview
   let inputText = $state(''); // This will hold the value of the input field
@@ -74,6 +75,16 @@
   <h1 class="title is-size-7 my-1 has-text-weight-normal">
     {title}
   </h1>
+  <nav class="navbar px-3">
+    <div class="navbar-start buttons">
+      <a class="button is-small" href="#">
+        <StepBack />
+      </a>
+      <a class="button is-small" href="#">
+        <StepForward />
+      </a>
+    </div>
+  </nav>
 
   <!-- Preview Area: Expands to fill all remaining space -->
   <!-- mt-5 accounts for the fixed navbar height -->
