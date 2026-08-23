@@ -1,10 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { db } from '$lib/db';
+  import { MovingWindowEditor } from '$lib/movingWindowEditor';
 
-  let text = $state(''); // Declare text as reactive state
+  let editorText = $state(''); // This will hold the full text for the preview
+  let inputText = $state(''); // This will hold the value of the input field
   let inputElement: HTMLInputElement;
   let currentDocument: db.Document | null = null;
+  let editor: MovingWindowEditor | null = null;
+  let mode = $state<'INPUT' | null>(null); // Tracks whether the omnibox is in INPUT mode
 
   // Keep the input focused to prevent keyboard flicker and layout shifts on mobile
   function keepFocus() {
@@ -21,14 +25,28 @@
       doc = { id, name: 'Scratch', content: '' };
     }
     currentDocument = doc;
-    text = doc.content;
+
+    // Initialize the MovingWindowEditor with the document's full content
+    editor = new MovingWindowEditor(doc.content, doc.content.length, 50, 100);
+
+    // Set the initial displayed text to the editor's full text for the preview
+    editorText = editor.getText();
+    // Also set the input field's initial value to the current window
+    inputText = editor.getWindow();
+
     keepFocus();
   });
 
-  // Update the document in the database whenever text changes using $effect
+  // Sync the full editor text to the database whenever it changes
   $effect(() => {
-    if (currentDocument) {
-      db.documents.update(currentDocument.id, { content: text });
+    if (editorText) {
+      db.documents.update(currentDocument.id, { content: editor.getText() });
+    }
+
+    if (!mode && inputText !== '') {
+      // Whenever the input value changes, update the editor and set
+      // the mode to "INPUT".
+      mode = 'INPUT';
     }
   });
 </script>
@@ -60,8 +78,8 @@
   <!-- mt-5 accounts for the fixed navbar height -->
   <main class="section mt-5 px-3 py-4 is-flex-grow-1" style="overflow-y: auto;">
     <div class="content" style="white-space: pre-wrap;">
-      {#if text}
-        {text}
+      {#if mode === 'INPUT'}
+        {editorText}
       {:else}
         <span class="has-text-info">Preview will appear here…</span>
       {/if}
@@ -74,11 +92,20 @@
       <div class="control">
         <input 
           bind:this={inputElement}
-          bind:value={text}
+          bind:value={inputText}
           class="input is-rounded" 
           type="text" 
           placeholder="Type text or commands..."
-          on:blur={keepFocus}
+          onblur={keepFocus}
+          oninput={(e) => {
+            if (editor) {
+              editor.update(e.target.value);
+              // Update the preview text to reflect the full content after the update
+              editorText = editor.getText();
+              // Keep the inputText bound to the editor's current window
+              inputText = editor.getWindow();
+            }
+          }}
         />
       </div>
     </div>
