@@ -67,6 +67,28 @@ export class MovingWindowEditor {
     this.calculateStart();
   }
 
+  public moveCursorByWindowSize(delta: number): void {
+    const targetCursor = this.cursor + delta * this.windowSize;
+    if (this.text.length <= targetCursor) {
+      this.setCursor(this.text.length);
+      return;
+    }
+    const tempCursor = (
+      targetCursor + this.windowSize
+      // Temporarily go forward another window to find the word boundary.
+    );
+    if (0 < delta && this.text.length <= tempCursor) {
+      // Reach the last window by forward movement which
+      // would otherwise be unreachable.
+      this.setCursor(this.text.length);
+      return;
+    }
+    this.setCursor(tempCursor);
+    if (0 < this.start) {
+      this.setCursor(this.start);
+    }
+  }
+
   public update(newWindowText: string): void {
     const before = this.text.substring(0, this.start);
     const after = this.text.substring(this.cursor);

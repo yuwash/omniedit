@@ -6,6 +6,7 @@
 
   let editorText = $state(''); // This will hold the full text for the preview
   let inputText = $state(''); // This will hold the value of the input field
+  let windowRange = $state<[number, number]>([0, 0]); // Track current window bounds reactively
   let inputElement: HTMLInputElement;
   let currentDocument: db.Document | null = null;
   let editor: MovingWindowEditor | null = null;
@@ -36,6 +37,7 @@
     // Also set the input field's initial value to the current window
     inputText = editor.getWindow();
 
+    updatePreview();
     keepFocus();
   });
 
@@ -52,6 +54,28 @@
       mode = 'INPUT';
     }
   });
+
+  function stepBack() {
+    if (editor) {
+      editor.moveCursorByWindowSize(-1);
+      updatePreview();
+    }
+  }
+
+  function stepForward() {
+    if (editor) {
+      editor.moveCursorByWindowSize(1);
+      updatePreview();
+    }
+  }
+
+  function updatePreview() {
+    if (editor) {
+      editorText = editor.getText();
+      inputText = editor.getWindow();
+      windowRange = editor.getWindowStartEnd();
+    }
+  }
 </script>
 
 <svelte:head>
@@ -77,12 +101,12 @@
   </h1>
   <nav class="navbar px-3">
     <div class="navbar-start buttons">
-      <a class="button is-small" href="#">
+      <button class="button is-small" onclick={stepBack}>
         <StepBack />
-      </a>
-      <a class="button is-small" href="#">
+      </button>
+      <button class="button is-small" onclick={stepForward}>
         <StepForward />
-      </a>
+      </button>
     </div>
   </nav>
 
@@ -92,9 +116,9 @@
     <div class="content" style="white-space: pre-wrap;">
       {#if mode === 'INPUT'}
         {#if editor}
-          {@html editorText.substring(0, editor.getWindowStartEnd()[0])}
-          <strong>{editorText.substring(editor.getWindowStartEnd()[0], editor.getWindowStartEnd()[1])}</strong>
-          {@html editorText.substring(editor.getWindowStartEnd()[1])}
+          {@html editorText.substring(0, windowRange[0])}
+          <strong>{editorText.substring(windowRange[0], windowRange[1])}</strong>
+          {@html editorText.substring(windowRange[1])}
         {/if}
       {:else}
         <span class="has-text-info">Preview will appear here…</span>
@@ -117,9 +141,7 @@
             if (editor) {
               editor.update(e.target.value);
               // Update the preview text to reflect the full content after the update
-              editorText = editor.getText();
-              // Keep the inputText bound to the editor's current window
-              inputText = editor.getWindow();
+              updatePreview();
             }
           }}
         />
