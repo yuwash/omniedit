@@ -273,6 +273,27 @@
               }
             } else if (mode === 'SEARCH' && e.key === 'Enter') {
               handleSearch();
+            } else if (mode === 'INPUT' && e.key === 'Enter') {
+              // Insert newline at cursor position
+              if (editor) {
+                const newText = editor.getText();
+                const cursorPos = editor.getWindowStartEnd()[1];
+                
+                // Insert newline at cursor position
+                const newContent = newText.substring(0, cursorPos) + '\n' + newText.substring(cursorPos);
+                
+                // Update editor with new content
+                editor = new MovingWindowEditor(newContent, cursorPos + 1, 50, 100);
+                
+                // Update preview
+                updatePreview();
+                
+                // Reset input text to reflect new window
+                inputText = editor.getWindow();
+                
+                // Keep focus on input
+                keepFocus(inputElement);
+              }
             }
           }}
         />
