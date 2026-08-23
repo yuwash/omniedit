@@ -19,18 +19,18 @@ export class MovingWindowEditor {
   }
 
   private calculateStart(): void {
-    // Ideal start is windowSize characters behind the cursor
-    let idealStart = Math.max(0, this.cursor - this.windowSize);
-    let actualStart = idealStart;
-
     // Find the start of the line containing the cursor
     const lineStart = this.text.lastIndexOf('\n', this.cursor - 1) + 1;
-    
-    // If we're not at the start of the text and the character before our
-    // potential start is a "word" character, we move back to find the start of that word.
-    if (actualStart > 0 && this.isWordChar(this.text[actualStart - 1])) {
+
+    // Ideal start is windowSize characters behind the cursor (within the current line)
+    let idealStart = Math.max(lineStart, this.cursor - this.windowSize);
+    let actualStart = idealStart;
+
+    // If we're not at lineStart and the character before our potential start is a "word" character,
+    // we move back to find the start of that word within lineStart.
+    if (actualStart > lineStart && this.isWordChar(this.text[actualStart - 1])) {
       let lookback = actualStart - 1;
-      // Move back until we hit a non-word character or the start of the line
+      // Move back until we hit a non-word character or lineStart
       while (lookback >= lineStart && this.isWordChar(this.text[lookback])) {
         lookback--;
       }
@@ -43,12 +43,8 @@ export class MovingWindowEditor {
         // Hard cut at maxWindowSize
         actualStart = Math.max(lineStart, this.cursor - this.maxWindowSize);
       }
-    } else if (actualStart > 0) {
-      // Ensure we don't cross line boundaries
-      actualStart = Math.max(lineStart, actualStart);
     }
 
-    // Ensure we don't go past the start of the line
     this.start = actualStart;
   }
 
@@ -78,36 +74,37 @@ export class MovingWindowEditor {
     if (delta == 0) {
       return;
     }
-    const targetCursor = this.cursor + delta * this.windowSize;
     if (0 < delta) {
       const nextLineBreak = this.text.indexOf('\n', this.cursor);
-      const nextLineBreakOrEnd = 0 <= nextLineBreak ? nextLineBreak : this.text.length;
+      if (nextLineBreak !== -1) {
+        this.setCursor(nextLineBreak + 1);
+        return;
+      }
+      const targetCursor = this.cursor + delta * this.windowSize;
       const ceilDeltaTillNextLineBreakOrEnd = Math.ceil(
-        (nextLineBreakOrEnd - this.cursor) / this.windowSize
+        (this.text.length - this.cursor) / this.windowSize
       );
-      if (nextLineBreakOrEnd <= targetCursor) {
-        this.setCursor(nextLineBreakOrEnd);
+      if (this.text.length <= targetCursor) {
+        this.setCursor(this.text.length);
         const remainingDelta = delta - ceilDeltaTillNextLineBreakOrEnd;
         return this.moveCursorByWindowSize(remainingDelta);
       }
     } else {
-      const prevLineBreak = this.text.lastIndexOf('\n', this.cursor - 1);
-      const prevLineBreakOrStart = 0 <= prevLineBreak ? prevLineBreak : 0;
-      const ceilDeltaTillPrevLineBreakOrStart = Math.ceil(
-        (this.cursor - prevLineBreakOrStart) / this.windowSize
-      );
-      if (delta < 0 && prevLineBreakOrStart >= targetCursor) {
-        this.setCursor(prevLineBreakOrStart);
-        const remainingDelta = delta + ceilDeltaTillPrevLineBreakOrStart;
-        return this.moveCursorByWindowSize(remainingDelta);
+      const currentLineStart = this.text.lastIndexOf('\n', this.cursor - 1) + 1;
+      if (this.cursor > currentLineStart) {
+        this.setCursor(currentLineStart);
+        return;
       }
+      if (currentLineStart > 0) {
+        const prevLineStart = this.text.lastIndexOf('\n', currentLineStart - 2) + 1;
+        this.setCursor(prevLineStart);
+        return;
+      }
+      this.setCursor(0);
+      return;
     }
-    // Not yet returning, so there’s no line break between the cursor
-    // and the target.
-    const tempCursor = (
-      targetCursor + this.windowSize
-      // Temporarily go forward another window to find the word boundary.
-    );
+    const targetCursor = this.cursor + delta * this.windowSize;
+    const tempCursor = targetCursor + this.windowSize;
     this.setCursor(tempCursor);
     if (0 < this.start) {
       this.setCursor(this.start);
