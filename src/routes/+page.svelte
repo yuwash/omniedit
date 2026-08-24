@@ -361,7 +361,11 @@
                 const fullText = editor.getText();
                 const newContent = fullText.substring(0, insertPos) + '\n' + fullText.substring(insertPos);
 
-                editor = new MovingWindowEditor(newContent, insertPos + 1, 50, 100);
+                // If Enter pressed at beginning of line (selectionStart === 0), cursor stays at insertPos (new empty line)
+                // If Enter pressed at end or middle of line, cursor moves to insertPos + 1
+                const newCursor = selectionStart === 0 ? insertPos : insertPos + 1;
+
+                editor = new MovingWindowEditor(newContent, newCursor, 50, 100);
                 updatePreview();
                 keepFocus(inputElement);
               }

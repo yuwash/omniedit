@@ -78,6 +78,12 @@ export class MovingWindowEditor {
     if (delta == 0) {
       return;
     }
+    if (delta > 0 && this.cursor >= this.text.length) {
+      return;
+    }
+    if (delta < 0 && this.cursor <= 0) {
+      return;
+    }
     const targetCursor = this.cursor + delta * this.windowSize;
     if (0 < delta) {
       let currentCursor = this.cursor;
@@ -88,7 +94,7 @@ export class MovingWindowEditor {
       const nextLineBreakOrEnd = 0 <= nextLineBreak ? nextLineBreak : this.text.length;
       const ceilDeltaTillNextLineBreakOrEnd = Math.max(
         1,
-        Math.ceil((nextLineBreakOrEnd - currentCursor) / this.windowSize)
+        Math.ceil((nextLineBreakOrEnd - this.cursor) / this.windowSize)
       );
       if (nextLineBreakOrEnd <= targetCursor) {
         this.setCursor(nextLineBreakOrEnd);
@@ -104,12 +110,18 @@ export class MovingWindowEditor {
       const prevLineBreakOrStart = 0 <= prevLineBreak ? prevLineBreak : 0;
       const ceilDeltaTillPrevLineBreakOrStart = Math.max(
         1,
-        Math.ceil((currentCursor - prevLineBreakOrStart) / this.windowSize)
+        Math.ceil((this.cursor - prevLineBreakOrStart) / this.windowSize)
       );
-      if (delta < 0 && prevLineBreakOrStart >= targetCursor) {
+      if (
+        delta < 0 &&
+        (prevLineBreakOrStart >= targetCursor || (prevLineBreak < 0 && this.cursor > 0))
+      ) {
         this.setCursor(prevLineBreakOrStart);
         const remainingDelta = delta + ceilDeltaTillPrevLineBreakOrStart;
-        return this.moveCursorByWindowSize(remainingDelta);
+        if (remainingDelta < 0 && this.cursor > 0) {
+          return this.moveCursorByWindowSize(remainingDelta);
+        }
+        return;
       }
     }
     // Not yet returning, so there’s no line break between the cursor
