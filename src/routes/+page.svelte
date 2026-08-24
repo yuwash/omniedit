@@ -106,8 +106,13 @@
 
   function selectMatch(start: number) {
     if (editor) {
-      editor.setCursor(start);
-      editor.moveCursorByWindowSize(1); // Move window to start with the match
+      // Position cursor past the match so the match is included in the window
+      const text = editor.getText();
+      const nextLineBreak = text.indexOf('\n', start);
+      const lineEnd = nextLineBreak !== -1 ? nextLineBreak : text.length;
+      // Ideal cursor position is start + 50 or lineEnd
+      const targetCursor = Math.min(lineEnd, Math.max(start + 1, start + 50));
+      editor.setCursor(targetCursor);
       updatePreview();
       searchQuery = '';
       searchMatches = [];
@@ -359,6 +364,27 @@
                 editor = new MovingWindowEditor(newContent, insertPos + 1, 50, 100);
                 updatePreview();
                 keepFocus(inputElement);
+              }
+            } else if (mode === 'INPUT' && e.key === 'Backspace') {
+              if (editor) {
+                const target = e.target as HTMLInputElement;
+                const selectionStart = target.selectionStart ?? 0;
+                const selectionEnd = target.selectionEnd ?? 0;
+                // Check if omnibox is empty and selection is at 0
+                if (target.value === '' && selectionStart === 0 && selectionEnd === 0) {
+                  const fullText = editor.getText();
+                  const [winStart, winEnd] = editor.getWindowStartEnd();
+                  // Check if there is a newline preceding winStart
+                  if (winStart > 0 && fullText[winStart - 1] === '\n') {
+                    e.preventDefault();
+                    // Delete the newline preceding winStart
+                    const newContent = fullText.substring(0, winStart - 1) + fullText.substring(winStart);
+                    // Place cursor at the end of the previous line (winStart - 1)
+                    editor = new MovingWindowEditor(newContent, winStart - 1, 50, 100);
+                    updatePreview();
+                    keepFocus(inputElement);
+                  }
+                }
               }
             }
           }}
