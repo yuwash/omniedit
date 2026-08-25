@@ -9,9 +9,10 @@
   let windowRange = $state<[number, number]>([0, 0]); // Track current window bounds reactively
   let inputElement: HTMLInputElement;
   let currentDocument = $state<DbDocument | null>(null);
+  let currentDocumentName = $state('');
   let editor = $state<MovingWindowEditor | null>(null);
   let mode = $state<'INPUT' | 'SEARCH' | 'DOCUMENTS' | null>(null); // Tracks whether the omnibox is in INPUT, SEARCH, or DOCUMENTS mode
-  let title = $state('');
+  let title = $derived(currentDocumentName ? currentDocumentName + ' - Omniedit' : 'Omniedit');
   let searchMatches = $state<{ text: string; start: number; end: number }[]>([]);
   let searchQuery = $state('');
   let documents = $state<DbDocument[]>([]); // List of all documents
@@ -56,7 +57,7 @@
   $effect(() => {
     if (editorText && currentDocument && editor) {
       db.documents.update(currentDocument.id, { content: editor.getText() });
-      title = currentDocument.name + ' – Omniedit';
+      currentDocumentName = currentDocument.name;
     }
 
     if (!mode && inputText !== '') {
@@ -151,10 +152,14 @@
   function openDocumentsList() {
     mode = 'DOCUMENTS';
     loadDocuments(); // Refresh the document list
+    // Show the current document title in the omnibox for renaming
+    inputText = currentDocumentName;
   }
 
   function closeDocumentsList() {
     mode = 'INPUT';
+    // Restore the editor window in the omnibox
+    updatePreview();
   }
 
   function switchToDocument(doc: DbDocument) {
@@ -171,7 +176,7 @@
     editorText = editor.getText();
     inputText = editor.getWindow();
     windowRange = editor.getWindowStartEnd();
-    title = doc.name + ' – Omniedit';
+    currentDocumentName = doc.name;
     mode = 'INPUT';
     
     keepFocus(inputElement);
@@ -387,12 +392,17 @@
         {/each}
       {:else if mode === 'DOCUMENTS'}
         {#each documents as doc}
-          <button 
-            class="button is-text p-0"
-            onclick={() => switchToDocument(doc)}
-          >
-            {doc.name}
-          </button>
+          {const isCurrent = currentDocument?.id === doc.id}
+          {const docName = $derived(isCurrent ? currentDocumentName : doc.name)}
+          <p class="document-with-preview">
+            {#if isCurrent}⬤{/if}
+            <button
+              class="button is-text p-0"
+              onclick={() => switchToDocument(doc)}
+            >
+              {#if docName}{docName}{:else}<i>Untitled</i>{/if}
+            </button>: {doc.content.substring(0, 100)}
+          </p>
         {/each}
       {:else}
         <p><span class="has-text-info">Preview will appear here…</span></p>
@@ -416,6 +426,13 @@
             if (mode === 'SEARCH') {
               searchQuery = target.value;
               handleSearch();
+            } else if (mode === 'DOCUMENTS') {
+              // Rename the current document
+              currentDocumentName = target.value;
+              if (currentDocument) {
+                db.documents.update(currentDocument.id, { name: currentDocumentName });
+                currentDocument.name = currentDocumentName;
+              }
             } else {
               if (editor) {
                 editor.update(target.value);
@@ -465,3 +482,11 @@
     </div>
   </footer>
 </div>
+
+<style>
+  .document-with-preview {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>
