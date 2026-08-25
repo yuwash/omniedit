@@ -265,12 +265,14 @@
   </h1>
   <nav class="navbar px-3">
     <div class="navbar-start buttons">
-      <button class="button is-small" onclick={stepBack}>
-        <StepBack />
-      </button>
-      <button class="button is-small" onclick={stepForward}>
-        <StepForward />
-      </button>
+      {#if mode === 'INPUT'}
+        <button class="button is-small" onclick={stepBack}>
+          <StepBack />
+        </button>
+        <button class="button is-small" onclick={stepForward}>
+          <StepForward />
+        </button>
+      {/if}
       {#if mode === 'SEARCH'}
         <button class="button is-small" onclick={cancelSearch}>
           <X />
