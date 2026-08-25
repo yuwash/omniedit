@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { db, type Document as DbDocument } from '$lib/db';
   import { MovingWindowEditor } from '$lib/movingWindowEditor';
-  import { StepBack, StepForward, Search, X } from '@lucide/svelte';
+  import { StepBack, StepForward, Search, X, File } from '@lucide/svelte';
 
   let editorText = $state(''); // This will hold the full text for the preview
   let inputText = $state(''); // This will hold the value of the input field
@@ -10,10 +10,11 @@
   let inputElement: HTMLInputElement;
   let currentDocument = $state<DbDocument | null>(null);
   let editor = $state<MovingWindowEditor | null>(null);
-  let mode = $state<'INPUT' | 'SEARCH' | null>(null); // Tracks whether the omnibox is in INPUT or SEARCH mode
+  let mode = $state<'INPUT' | 'SEARCH' | 'DOCUMENTS' | null>(null); // Tracks whether the omnibox is in INPUT, SEARCH, or DOCUMENTS mode
   let title = $state('');
   let searchMatches = $state<{ text: string; start: number; end: number }[]>([]);
   let searchQuery = $state('');
+  let documents = $state<DbDocument[]>([]); // List of all documents
 
   // Keep the input focused to prevent keyboard flicker and layout shifts on mobile
   function keepFocus(element: HTMLInputElement | null) {
@@ -41,7 +42,15 @@
 
     updatePreview();
     keepFocus(inputElement);
+    
+    // Load all documents for the file list
+    loadDocuments();
   });
+
+  // Load all documents from the database
+  async function loadDocuments() {
+    documents = await db.documents.toArray();
+  }
 
   // Sync the full editor text to the database whenever it changes
   $effect(() => {
@@ -139,6 +148,35 @@
     keepFocus(inputElement);
   }
 
+  function openDocumentsList() {
+    mode = 'DOCUMENTS';
+    loadDocuments(); // Refresh the document list
+  }
+
+  function closeDocumentsList() {
+    mode = 'INPUT';
+  }
+
+  function switchToDocument(doc: DbDocument) {
+    if (editor) {
+      // Save current document content
+      db.documents.update(currentDocument!.id, { content: editor.getText() });
+    }
+    
+    // Load new document
+    currentDocument = doc;
+    editor = new MovingWindowEditor(doc.content, doc.content.length, 50, 100);
+    
+    // Update UI
+    editorText = editor.getText();
+    inputText = editor.getWindow();
+    windowRange = editor.getWindowStartEnd();
+    title = doc.name + ' – Omniedit';
+    mode = 'INPUT';
+    
+    keepFocus(inputElement);
+  }
+
   type HighlightSegment = { text: string; isMatch: boolean; start?: number };
 
   type FormattedSegment =
@@ -172,6 +210,33 @@
           }
         }
       }
+      return paragraphs;
+    }
+
+    if (mode === 'DOCUMENTS') {
+      // Show document list in preview area
+      const paragraphs: FormattedSegment[][] = [[]];
+      
+      // Add header
+      paragraphs[0].push({
+        type: 'strong',
+        text: 'Documents:'
+      });
+      
+      // Add each document as a button
+      for (const doc of documents) {
+        paragraphs.push([]);
+        paragraphs[paragraphs.length - 1].push({
+          type: 'normal',
+          text: '- '
+        });
+        paragraphs[paragraphs.length - 1].push({
+          type: 'match',
+          text: doc.name,
+          start: 0
+        });
+      }
+      
       return paragraphs;
     }
 
@@ -277,9 +342,16 @@
         <button class="button is-small" onclick={cancelSearch}>
           <X />
         </button>
+      {:else if mode === 'DOCUMENTS'}
+        <button class="button is-small" onclick={closeDocumentsList}>
+          <X />
+        </button>
       {:else}
         <button class="button is-small" onclick={enterSearchMode}>
           <Search />
+        </button>
+        <button class="button is-small" onclick={openDocumentsList}>
+          <File />
         </button>
       {/if}
     </div>
@@ -312,6 +384,15 @@
               {/each}
             {/if}
           </p>
+        {/each}
+      {:else if mode === 'DOCUMENTS'}
+        {#each documents as doc}
+          <button 
+            class="button is-text p-0"
+            onclick={() => switchToDocument(doc)}
+          >
+            {doc.name}
+          </button>
         {/each}
       {:else}
         <p><span class="has-text-info">Preview will appear here…</span></p>
@@ -346,6 +427,8 @@
             if (e.key === 'Escape') {
               if (mode === 'SEARCH') {
                 cancelSearch();
+              } else if (mode === 'DOCUMENTS') {
+                closeDocumentsList();
               } else {
                 mode = null;
                 keepFocus(inputElement);
