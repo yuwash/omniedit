@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { db, type Document as DbDocument } from '$lib/db';
   import { MovingWindowEditor } from '$lib/movingWindowEditor';
-  import { StepBack, StepForward, Search, X, File } from '@lucide/svelte';
+  import { StepBack, StepForward, Search, X, File, Trash } from '@lucide/svelte';
 
   let editorText = $state(''); // This will hold the full text for the preview
   let inputText = $state(''); // This will hold the value of the input field
@@ -16,6 +16,7 @@
   let searchMatches = $state<{ text: string; start: number; end: number }[]>([]);
   let searchQuery = $state('');
   let documents = $state<DbDocument[]>([]); // List of all documents
+  let currentDocumentMarkedForDeletion = $state(false); // New state to track deletion marking
 
   // Keep the input focused to prevent keyboard flicker and layout shifts on mobile
   function keepFocus(element: HTMLInputElement | null) {
@@ -166,24 +167,10 @@
     keepFocus(omniboxElement);
   }
 
-  function switchToDocument(doc: DbDocument) {
-    if (editor) {
-      // Save current document content
-      db.documents.update(currentDocument!.id, { content: editor.getText() });
-    }
-    
-    // Load new document
-    currentDocument = doc;
-    editor = new MovingWindowEditor(doc.content, doc.content.length, 50, 100);
-    
-    // Update UI
-    editorText = editor.getText();
-    inputText = editor.getWindow();
-    windowRange = editor.getWindowStartEnd();
-    currentDocumentName = doc.name;
-    mode = 'INPUT';
-    
-    keepFocus(inputElement);
+  // New function to mark the current document for deletion
+  async function deleteCurrentDocument() {
+    if (!currentDocument) return;
+    currentDocumentMarkedForDeletion = true;
   }
 
   type HighlightSegment = { text: string; isMatch: boolean; start?: number };
@@ -314,6 +301,40 @@
 
     return segments;
   }
+
+  async function switchToDocument(doc: DbDocument) {
+    if (!editor) return;
+    const documentChanged = currentDocument?.id !== doc.id;
+
+    if (currentDocumentMarkedForDeletion) {
+      if (documentChanged) {
+        // Delete the currently marked document
+        await db.documents.delete(currentDocument.id);
+        currentDocumentMarkedForDeletion = false;
+      } else {
+        // Unmark and keep the same document
+        currentDocumentMarkedForDeletion = false;
+        updatePreview();
+      }
+    }
+
+    if (documentChanged) {
+      // Save current document content
+      await db.documents.update(currentDocument!.id, { content: editor.getText() });
+
+      // Load new document
+      currentDocument = doc;
+      editor = new MovingWindowEditor(doc.content, doc.content.length, 50, 100);
+
+      // Update UI
+      editorText = editor.getText();
+      inputText = editor.getWindow();
+      windowRange = editor.getWindowStartEnd();
+      currentDocumentName = doc.name;
+    }
+    mode = 'INPUT';
+    keepFocus(inputElement);
+  }
 </script>
 
 <svelte:head>
@@ -354,6 +375,9 @@
       {:else if mode === 'DOCUMENTS'}
         <button class="button is-small" onclick={closeDocumentsList}>
           <X />
+        </button>
+        <button class="button is-small is-danger" onclick={deleteCurrentDocument}>
+          <Trash />
         </button>
       {:else}
         <button class="button is-small" onclick={enterSearchMode}>
@@ -399,7 +423,7 @@
           {const isCurrent = currentDocument?.id === doc.id}
           {const docName = $derived(isCurrent ? currentDocumentName : doc.name)}
           <p class="document-with-preview">
-            {#if isCurrent}⬤{/if}
+            {#if isCurrent}{#if currentDocumentMarkedForDeletion}↶{:else}⬤{/if}{/if}
             <button
               class="button is-text p-0"
               onclick={() => switchToDocument(doc)}
