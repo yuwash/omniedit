@@ -77,4 +77,36 @@ describe('MovingWindowEditor', () => {
     expect(start5).toBe(13);
     expect(end5).toBe(text.length);
   });
+
+  it('should correctly merge with previous line', () => {
+    const text = "abcde\n\nfghij";
+    // Place cursor in the middle empty line (index 6)
+    const editor = new MovingWindowEditor(text, 6);
+
+    // Merge with previous line: should remove the empty line
+    editor.mergeWithPreviousLine();
+    expect(editor.getText()).toBe("abcde\nfghij");
+    const [start1, end1] = editor.getWindowStartEnd();
+    expect(start1).toBe(0);
+    expect(end1).toBe(5);
+    expect(editor.getWindow()).toBe("abcde");
+
+    // Merge again on the first line: should do nothing
+    editor.mergeWithPreviousLine();
+    expect(editor.getText()).toBe("abcde\nfghij");
+    const [start2, end2] = editor.getWindowStartEnd();
+    expect(start2).toBe(0);
+    expect(end2).toBe(5);
+    expect(editor.getWindow()).toBe("abcde");
+
+    // Move cursor to the end of the text (last line)
+    editor.setCursor(editor.getText().length);
+    // Merge with previous line: should join with a space
+    editor.mergeWithPreviousLine();
+    expect(editor.getText()).toBe("abcde fghij");
+    const [start3, end3] = editor.getWindowStartEnd();
+    expect(start3).toBe(0);
+    expect(end3).toBe(5);
+    expect(editor.getWindow()).toBe("abcde");
+  });
 });

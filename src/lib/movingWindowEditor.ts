@@ -138,6 +138,10 @@ export class MovingWindowEditor {
 
   public mergeWithPreviousLine(): void {
     const previousLineEnd = this.text.lastIndexOf('\n', Math.max(0, this.cursor - 1));
+    if (previousLineEnd < 0) {
+      // No previous line, nothing to merge
+      return;
+    }
     const before = this.text.substring(0, previousLineEnd);  // Without the newline
     const after = this.text.substring(previousLineEnd + 1);
     this.text = before + (
