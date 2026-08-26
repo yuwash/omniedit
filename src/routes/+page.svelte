@@ -4,18 +4,19 @@
   import { MovingWindowEditor } from '$lib/movingWindowEditor';
   import { StepBack, StepForward, Search, X, File, Trash, FilePlus, ClipboardCopy, Download } from '@lucide/svelte';
 
-  let editorText = $state(''); // This will hold the full text for the preview
   let inputText = $state(''); // This will hold the value of the input field
   let windowRange = $state<[number, number]>([0, 0]); // Track current window bounds reactively
   let omniboxElement: HTMLTextAreaElement;
-  let currentDocument = $state<DbDocument | null>(null);
-  let currentDocumentName = $state('');
   let editor = $state<MovingWindowEditor | null>(null);
+  let editorText = $derived(editor ? editor.getText() : ''); // This will hold the full text for the preview
   let mode = $state<'INPUT' | 'SEARCH' | 'DOCUMENTS' | null>(null); // Tracks whether the omnibox is in INPUT, SEARCH, or DOCUMENTS mode
   let title = $derived(currentDocumentName ? currentDocumentName + ' - Omniedit' : 'Omniedit');
   let searchMatches = $state<{ text: string; start: number; end: number }[]>([]);
   let searchQuery = $state('');
   let documents = $state<DbDocument[]>([]); // List of all documents
+  let currentDocumentId = $state<number | null>(null);
+  let currentDocument = $derived<DbDocument | null>(documents.find((doc) => doc.id === currentDocumentId));
+  let currentDocumentName = $derived(currentDocument ? currentDocument.name : '');
   let currentDocumentMarkedForDeletion = $state(false); // New state to track deletion marking
 
   // Keep the input focused to prevent keyboard flicker and layout shifts on mobile
@@ -32,18 +33,17 @@
       const id = await db.documents.add({ name: 'Scratch', content: '' });
       doc = { id, name: 'Scratch', content: '' };
     }
-    currentDocument = doc;
+    currentDocumentId = doc.id;
 
     // Initialize the MovingWindowEditor with the document's full content
     editor = new MovingWindowEditor(doc.content, doc.content.length, 50, 100);
 
-    // Set the initial displayed text to the editor's full text for the preview
-    editorText = editor.getText();
-    // Also set the input field's initial value to the current window
+    // Set the input field's initial value to the current window
     inputText = editor.getWindow();
 
     updatePreview();
     keepFocus(omniboxElement);
+    mode = 'INPUT';
     
     // Load all documents for the file list
     loadDocuments();
@@ -56,13 +56,15 @@
 
   // Sync the full editor text to the database whenever it changes
   $effect(() => {
-    if (editorText && currentDocument && editor) {
-      db.documents.update(currentDocument.id, { content: editor.getText() });
-      currentDocumentName = currentDocument.name;
+    if (currentDocumentId && editorText) {
+      db.documents.update(currentDocumentId, { content: editorText });
     }
+  });
 
-    if (!mode && inputText !== '') {
-      mode = 'INPUT';
+  // Sync the current document name to the database whenever it changes
+  $effect(() => {
+    if (currentDocumentId && currentDocumentName) {
+      db.documents.update(currentDocumentId, { name: currentDocumentName });
     }
   });
 
@@ -178,8 +180,7 @@
     const id = await db.documents.add({ name: '', content: '' });
     const newDoc: DbDocument = { id, name: '', content: '' };
     // Set as current document
-    currentDocument = newDoc;
-    currentDocumentName = '';
+    currentDocumentId = newDoc.id;
     currentDocumentMarkedForDeletion = false;
     editor = new MovingWindowEditor('', 0, 50, 100);
     // Keep in DOCUMENTS mode so user can rename
@@ -187,7 +188,6 @@
     // Refresh document list to include the new one
     await loadDocuments();
     // Update UI
-    editorText = editor.getText();
     inputText = editor.getWindow();
     windowRange = editor.getWindowStartEnd();
     keepFocus(omniboxElement);
@@ -353,7 +353,7 @@
     if (currentDocumentMarkedForDeletion && currentDocument) {
       if (documentChanged) {
         // Delete the currently marked document
-        await db.documents.delete(currentDocument.id);
+        await db.documents.delete(currentDocumentId);
         currentDocumentMarkedForDeletion = false;
       } else {
         // Unmark and keep the same document
@@ -367,14 +367,12 @@
       await db.documents.update(currentDocument!.id, { content: editor.getText() });
 
       // Load new document
-      currentDocument = doc;
+      currentDocumentId = doc.id;
       editor = new MovingWindowEditor(doc.content, doc.content.length, 50, 100);
 
       // Update UI
-      editorText = editor.getText();
       inputText = editor.getWindow();
       windowRange = editor.getWindowStartEnd();
-      currentDocumentName = doc.name;
     }
     mode = 'INPUT';
     keepFocus(omniboxElement);
@@ -453,10 +451,8 @@
               handleSearch();
             } else if (mode === 'DOCUMENTS') {
               // Rename the current document
-              currentDocumentName = target.value;
               if (currentDocument) {
-                db.documents.update(currentDocument.id, { name: currentDocumentName });
-                currentDocument.name = currentDocumentName;
+                currentDocument.name = target.value;
               }
             } else {
               if (editor) {
