@@ -327,7 +327,7 @@
     if (!editor) return;
     const documentChanged = currentDocument?.id !== doc.id;
 
-    if (currentDocumentMarkedForDeletion) {
+    if (currentDocumentMarkedForDeletion && currentDocument) {
       if (documentChanged) {
         // Delete the currently marked document
         await db.documents.delete(currentDocument.id);
@@ -416,7 +416,6 @@
           bind:value={inputText}
           class="textarea"
           rows="1"
-          type="text"
           placeholder="Type text or commands..."
           oninput={(e) => {
             const target = e.target as HTMLTextAreaElement;
@@ -468,6 +467,7 @@
                 const selectionEnd = target.selectionEnd ?? 0;
                 // Check if omnibox is empty and selection is at 0
                 if (selectionStart === 0 && selectionEnd === 0 && editor.windowIsAtLineStart) {
+                  e.preventDefault();
                   editor.mergeWithPreviousLine();
                   updatePreview();
                   keepFocus(omniboxElement);
@@ -475,7 +475,7 @@
               }
             }
           }}
-        />
+        ></textarea>
       </div>
     </div>
     <div class="content">
