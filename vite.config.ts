@@ -42,6 +42,11 @@ export default defineConfig({
 						src: "/lucide-text-cursor-input.svg",
 						sizes: "256x256",
 						type: "image/svg+xml"
+					},
+					{
+						src: "/lucide-text-cursor-input-192.png",
+						sizes: "192x192",
+						type: "image/png"
 					}
 				],
 				start_url: ".",
