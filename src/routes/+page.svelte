@@ -69,6 +69,7 @@
     if (editor) {
       editor.moveCursorByWindowSize(-1);
       updatePreview();
+      keepFocus(omniboxElement);
     }
   }
 
@@ -76,6 +77,7 @@
     if (editor) {
       editor.moveCursorByWindowSize(1);
       updatePreview();
+      keepFocus(omniboxElement);
     }
   }
 
@@ -154,12 +156,14 @@
     loadDocuments(); // Refresh the document list
     // Show the current document title in the omnibox for renaming
     inputText = currentDocumentName;
+    keepFocus(omniboxElement);
   }
 
   function closeDocumentsList() {
     mode = 'INPUT';
     // Restore the editor window in the omnibox
     updatePreview();
+    keepFocus(omniboxElement);
   }
 
   function switchToDocument(doc: DbDocument) {
@@ -420,7 +424,6 @@
           class="input is-rounded"
           type="text"
           placeholder="Type text or commands..."
-          onblur={() => keepFocus(inputElement)}
           oninput={(e) => {
             const target = e.target as HTMLInputElement;
             if (mode === 'SEARCH') {
