@@ -194,7 +194,6 @@
     keepFocus(omniboxElement);
   }
 
-  // New function to copy the entire current document to clipboard
   async function copyCurrentDocument() {
     if (!currentDocument) return;
     try {
@@ -405,11 +404,11 @@
         <button class="button is-small" onclick={addNewDocument}>
           <FilePlus />
         </button>
-        <button class="button is-small is-danger" onclick={deleteCurrentDocument}>
-          <Trash />
-        </button>
         <button class="button is-small" onclick={copyCurrentDocument}>
           <ClipboardCopy />
+        </button>
+        <button class="button is-small is-danger" onclick={deleteCurrentDocument}>
+          <Trash />
         </button>
       {:else}
         <button class="button is-small" onclick={enterSearchMode}>
