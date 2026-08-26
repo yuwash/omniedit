@@ -408,53 +408,7 @@
     </div>
   </nav>
 
-  <main class="section p-3 is-flex-grow-1" style="overflow-y: auto;">
-    <div class="content">
-      {#if mode === 'SEARCH' || mode === 'INPUT' || mode === null}
-        {#each getRenderedParagraphs() as paragraph}
-          <p>
-            {#if paragraph.length === 0}
-              <br />
-            {:else}
-              {#each paragraph as seg}
-                {#if seg.type === 'match'}
-                  <button
-                    type="button"
-                    class="button is-text p-0 is-inline border-0 text-left font-weight-bold style-match-button"
-                    onclick={() => selectMatch(seg.start)}
-                  >
-                    <strong>{seg.text}</strong>
-                  </button>
-                {:else if seg.type === 'strong'}
-                  <strong>{seg.text}</strong>
-                {:else}
-                  {seg.text}
-                {/if}
-              {/each}
-            {/if}
-          </p>
-        {/each}
-      {:else if mode === 'DOCUMENTS'}
-        {#each documents as doc}
-          {const isCurrent = $derived(currentDocument?.id === doc.id)}
-          {const docName = $derived(isCurrent ? currentDocumentName : doc.name)}
-          <p class="document-with-preview">
-            {#if isCurrent}{#if currentDocumentMarkedForDeletion}↶{:else}⬤{/if}{/if}
-            <button
-              class="button is-text p-0"
-              onclick={() => switchToDocument(doc)}
-            >
-              {#if docName}{docName}{:else}<i>Untitled</i>{/if}
-            </button>: {doc.content.substring(0, 100)}
-          </p>
-        {/each}
-      {:else}
-        <p><span class="has-text-info">Preview will appear here…</span></p>
-      {/if}
-    </div>
-  </main>
-
-  <footer class="px-3 pb-3 pt-2">
+  <main class="section p-3">
     <div class="field">
       <div class="control">
         <textarea
@@ -524,7 +478,50 @@
         />
       </div>
     </div>
-  </footer>
+    <div class="content">
+      {#if mode === 'SEARCH' || mode === 'INPUT' || mode === null}
+        {#each getRenderedParagraphs() as paragraph}
+          <p>
+            {#if paragraph.length === 0}
+              <br />
+            {:else}
+              {#each paragraph as seg}
+                {#if seg.type === 'match'}
+                  <button
+                    type="button"
+                    class="button is-text p-0 is-inline border-0 text-left font-weight-bold style-match-button"
+                    onclick={() => selectMatch(seg.start)}
+                  >
+                    <strong>{seg.text}</strong>
+                  </button>
+                {:else if seg.type === 'strong'}
+                  <strong>{seg.text}</strong>
+                {:else}
+                  {seg.text}
+                {/if}
+              {/each}
+            {/if}
+          </p>
+        {/each}
+      {:else if mode === 'DOCUMENTS'}
+        {#each documents as doc}
+          {const isCurrent = $derived(currentDocument?.id === doc.id)}
+          {const docName = $derived(isCurrent ? currentDocumentName : doc.name)}
+          <p class="document-with-preview">
+            {#if isCurrent}{#if currentDocumentMarkedForDeletion}↶{:else}⬤{/if}{/if}
+            <button
+              class="button is-text p-0"
+              onclick={() => switchToDocument(doc)}
+            >
+              {#if docName}{docName}{:else}<i>Untitled</i>{/if}
+            </button>: {doc.content.substring(0, 100)}
+          </p>
+        {/each}
+      {:else}
+        <p><span class="has-text-info">Preview will appear here…</span></p>
+      {/if}
+    </div>
+  </main>
 </div>
 
 <style>
