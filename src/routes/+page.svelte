@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import { db, type Document as DbDocument } from '$lib/db';
   import { MovingWindowEditor } from '$lib/movingWindowEditor';
+  import { getRenderedSearchParagraphs, getRenderedInputParagraphs, getRenderedDocumentsParagraphs } from '$lib/segmentation';
+  import type { FormattedSegment } from '$lib/segmentation';
   import { StepBack, StepForward, Search, X, File, Trash, FilePlus, ClipboardCopy, Download } from '@lucide/svelte';
 
   let inputText = $state(''); // This will hold the value of the input field
@@ -228,133 +230,14 @@
     URL.revokeObjectURL(url);
   }
 
-  type HighlightSegment = { text: string; isMatch: boolean; start?: number };
-
-  type FormattedSegment =
-    | { type: 'normal'; text: string }
-    | { type: 'strong'; text: string }
-    | { type: 'match'; text: string; start: number };
-
   function getRenderedParagraphs(): FormattedSegment[][] {
     if (mode === 'SEARCH') {
-      const rawSegments = getSearchSegments();
-      const paragraphs: FormattedSegment[][] = [[]];
-      for (const seg of rawSegments) {
-        const parts = seg.text.split('\n');
-        for (let i = 0; i < parts.length; i++) {
-          if (i > 0) {
-            paragraphs.push([]);
-          }
-          if (parts[i]) {
-            if (seg.isMatch && seg.start !== undefined) {
-              paragraphs[paragraphs.length - 1].push({
-                type: 'match',
-                text: parts[i],
-                start: seg.start,
-              });
-            } else {
-              paragraphs[paragraphs.length - 1].push({
-                type: 'normal',
-                text: parts[i],
-              });
-            }
-          }
-        }
-      }
-      return paragraphs;
+      return getRenderedSearchParagraphs(editorText, searchMatches);
     }
-
     if (mode === 'DOCUMENTS') {
-      // Show document list in preview area
-      const paragraphs: FormattedSegment[][] = [[]];
-      
-      // Add header
-      paragraphs[0].push({
-        type: 'strong',
-        text: 'Documents:'
-      });
-      
-      // Add each document as a button
-      for (const doc of documents) {
-        paragraphs.push([]);
-        paragraphs[paragraphs.length - 1].push({
-          type: 'normal',
-          text: '- '
-        });
-        paragraphs[paragraphs.length - 1].push({
-          type: 'match',
-          text: doc.name,
-          start: 0
-        });
-      }
-      
-      return paragraphs;
+      return getRenderedDocumentsParagraphs(documents);
     }
-
-    if (!editor) return [];
-
-    const [start, end] = windowRange;
-    const before = editorText.substring(0, start);
-    const windowed = editorText.substring(start, end);
-    const after = editorText.substring(end);
-
-    const segments: Array<{ type: 'normal' | 'strong'; text: string }> = [];
-    if (before) segments.push({ type: 'normal', text: before });
-    if (windowed) segments.push({ type: 'strong', text: windowed });
-    if (after) segments.push({ type: 'normal', text: after });
-
-    const paragraphs: FormattedSegment[][] = [[]];
-    for (const seg of segments) {
-      const parts = seg.text.split('\n');
-      for (let i = 0; i < parts.length; i++) {
-        if (i > 0) {
-          paragraphs.push([]);
-        }
-        if (parts[i]) {
-          paragraphs[paragraphs.length - 1].push(
-            seg.type === 'strong'
-              ? { type: 'strong', text: parts[i] }
-              : { type: 'normal', text: parts[i] }
-          );
-        }
-      }
-    }
-
-    return paragraphs;
-  }
-
-  function getSearchSegments(): HighlightSegment[] {
-    if (!editorText) return [];
-    if (!searchMatches || searchMatches.length === 0) {
-      return [{ text: editorText, isMatch: false }];
-    }
-
-    const segments: HighlightSegment[] = [];
-    let lastIndex = 0;
-
-    for (const match of searchMatches) {
-      if (match.start > lastIndex) {
-        segments.push({
-          text: editorText.substring(lastIndex, match.start),
-          isMatch: false,
-        });
-      }
-      segments.push({
-        text: editorText.substring(match.start, match.end),
-        isMatch: true,
-        start: match.start,
-      });
-      lastIndex = match.end;
-    }
-
-    if (lastIndex < editorText.length) {
-      segments.push({
-        text: editorText.substring(lastIndex),
-        isMatch: false,
-      });
-    }
-
-    return segments;
+    return getRenderedInputParagraphs(editorText, windowRange);
   }
 
   async function switchToDocument(doc: DbDocument) {
