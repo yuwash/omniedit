@@ -19,6 +19,10 @@
   let currentDocumentName = $derived(currentDocument ? currentDocument.name : '');
   let currentDocumentMarkedForDeletion = $state(false); // New state to track deletion marking
 
+  // Track textarea selection for cursor indicator
+  let selectionStart = $state(0);
+  let selectionEnd = $state(0);
+
   // Keep the input focused to prevent keyboard flicker and layout shifts on mobile
   function keepFocus(element: HTMLTextAreaElement | null) {
     if (element && document.activeElement !== element) {
@@ -67,6 +71,13 @@
       db.documents.update(currentDocumentId, { name: currentDocumentName });
     }
   });
+
+  function updateSelection() {
+    if (omniboxElement) {
+      selectionStart = omniboxElement.selectionStart;
+      selectionEnd = omniboxElement.selectionEnd;
+    }
+  }
 
   function stepBack() {
     if (editor) {
@@ -478,7 +489,6 @@
               if (editor) {
                 e.preventDefault(); // Prevent the browser from adding a second native newline
                 const target = e.target as HTMLTextAreaElement;
-                const selectionStart = target.selectionStart ?? target.value.length;
                 const windowStart = editor.getWindowStartEnd()[0];
                 const insertPos = windowStart + selectionStart;
                 editor.splitLine(insertPos);
@@ -488,8 +498,6 @@
             } else if (mode === 'INPUT' && e.key === 'Backspace') {
               if (editor) {
                 const target = e.target as HTMLTextAreaElement;
-                const selectionStart = target.selectionStart ?? 0;
-                const selectionEnd = target.selectionEnd ?? 0;
                 // Check if omnibox is empty and selection is at 0
                 if (selectionStart === 0 && selectionEnd === 0 && editor.windowIsAtLineStart) {
                   e.preventDefault();
@@ -500,6 +508,9 @@
               }
             }
           }}
+          onkeyup={updateSelection}
+          onclick={updateSelection}
+          onselect={updateSelection}
         ></textarea>
       </div>
     </div>
