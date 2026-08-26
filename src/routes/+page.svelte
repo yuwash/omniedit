@@ -135,10 +135,9 @@
   }
 
   function enterSearchMode() {
-    searchQuery = ''; // Clear search query
-    inputText = ''; // Clear input for search term
-    searchMatches = [];
+    searchQuery = inputText;
     mode = 'SEARCH';
+    handleSearch();
     keepFocus(omniboxElement);
   }
 
