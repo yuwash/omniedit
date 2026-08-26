@@ -19,7 +19,7 @@
   let currentDocumentMarkedForDeletion = $state(false); // New state to track deletion marking
 
   // Keep the input focused to prevent keyboard flicker and layout shifts on mobile
-  function keepFocus(element: HTMLInputElement | null) {
+  function keepFocus(element: HTMLTextAreaElement | null) {
     if (element && document.activeElement !== element) {
       element.focus();
     }
@@ -419,7 +419,7 @@
           type="text"
           placeholder="Type text or commands..."
           oninput={(e) => {
-            const target = e.target as HTMLInputElement;
+            const target = e.target as HTMLTextAreaElement;
             if (mode === 'SEARCH') {
               searchQuery = target.value;
               handleSearch();
@@ -453,7 +453,7 @@
               // Insert newline at current window selection position in omnibox
               if (editor) {
                 e.preventDefault(); // Prevent the browser from adding a second native newline
-                const target = e.target as HTMLInputElement;
+                const target = e.target as HTMLTextAreaElement;
                 const selectionStart = target.selectionStart ?? target.value.length;
                 const windowStart = editor.getWindowStartEnd()[0];
                 const insertPos = windowStart + selectionStart;
@@ -463,7 +463,7 @@
               }
             } else if (mode === 'INPUT' && e.key === 'Backspace') {
               if (editor) {
-                const target = e.target as HTMLInputElement;
+                const target = e.target as HTMLTextAreaElement;
                 const selectionStart = target.selectionStart ?? 0;
                 const selectionEnd = target.selectionEnd ?? 0;
                 // Check if omnibox is empty and selection is at 0
