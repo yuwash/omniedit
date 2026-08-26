@@ -511,7 +511,7 @@
     <div class="content">
       {#if mode === 'SEARCH' || mode === 'INPUT' || mode === null}
         {#each getRenderedParagraphs() as paragraph}
-          <p>
+          <p class="pre-wrap">
             {#if paragraph.length === 0}
               <br />
             {:else}
@@ -559,5 +559,9 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .pre-wrap {
+    /* Visible leading whitespaces */
+    white-space: pre-wrap;
   }
 </style>
