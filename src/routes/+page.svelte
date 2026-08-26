@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { db, type Document as DbDocument } from '$lib/db';
   import { MovingWindowEditor } from '$lib/movingWindowEditor';
-  import { StepBack, StepForward, Search, X, File, Trash, FilePlus } from '@lucide/svelte';
+  import { StepBack, StepForward, Search, X, File, Trash, FilePlus, ClipboardCopy } from '@lucide/svelte';
 
   let editorText = $state(''); // This will hold the full text for the preview
   let inputText = $state(''); // This will hold the value of the input field
@@ -192,6 +192,17 @@
     inputText = editor.getWindow();
     windowRange = editor.getWindowStartEnd();
     keepFocus(omniboxElement);
+  }
+
+  // New function to copy the entire current document to clipboard
+  async function copyCurrentDocument() {
+    if (!currentDocument) return;
+    try {
+      await navigator.clipboard.writeText(currentDocument.content);
+      // Optional: provide user feedback (e.g., toast) – omitted for brevity
+    } catch (e) {
+      console.error('Failed to copy document:', e);
+    }
   }
 
   type HighlightSegment = { text: string; isMatch: boolean; start?: number };
@@ -396,6 +407,9 @@
         </button>
         <button class="button is-small is-danger" onclick={deleteCurrentDocument}>
           <Trash />
+        </button>
+        <button class="button is-small" onclick={copyCurrentDocument}>
+          <ClipboardCopy />
         </button>
       {:else}
         <button class="button is-small" onclick={enterSearchMode}>
