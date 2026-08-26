@@ -7,7 +7,7 @@
   let editorText = $state(''); // This will hold the full text for the preview
   let inputText = $state(''); // This will hold the value of the input field
   let windowRange = $state<[number, number]>([0, 0]); // Track current window bounds reactively
-  let inputElement: HTMLInputElement;
+  let omniboxElement: HTMLTextAreaElement;
   let currentDocument = $state<DbDocument | null>(null);
   let currentDocumentName = $state('');
   let editor = $state<MovingWindowEditor | null>(null);
@@ -43,7 +43,7 @@
     inputText = editor.getWindow();
 
     updatePreview();
-    keepFocus(inputElement);
+    keepFocus(omniboxElement);
     
     // Load all documents for the file list
     loadDocuments();
@@ -130,7 +130,7 @@
       searchQuery = '';
       searchMatches = [];
       mode = 'INPUT'; // Switch back to input mode
-      keepFocus(inputElement); // Focus the main input
+      keepFocus(omniboxElement); // Focus the main input
     }
   }
 
@@ -139,7 +139,7 @@
     inputText = ''; // Clear input for search term
     searchMatches = [];
     mode = 'SEARCH';
-    keepFocus(inputElement);
+    keepFocus(omniboxElement);
   }
 
   function cancelSearch() {
@@ -149,7 +149,7 @@
     if (editor) {
       updatePreview();
     }
-    keepFocus(inputElement);
+    keepFocus(omniboxElement);
   }
 
   function openDocumentsList() {
@@ -191,7 +191,7 @@
     editorText = editor.getText();
     inputText = editor.getWindow();
     windowRange = editor.getWindowStartEnd();
-    keepFocus(inputElement);
+    keepFocus(omniboxElement);
   }
 
   type HighlightSegment = { text: string; isMatch: boolean; start?: number };
@@ -354,7 +354,7 @@
       currentDocumentName = doc.name;
     }
     mode = 'INPUT';
-    keepFocus(inputElement);
+    keepFocus(omniboxElement);
   }
 </script>
 
@@ -457,10 +457,11 @@
   <footer class="px-3 pb-3 pt-2">
     <div class="field">
       <div class="control">
-        <input
-          bind:this={inputElement}
+        <textarea
+          bind:this={omniboxElement}
           bind:value={inputText}
-          class="input is-rounded"
+          class="textarea"
+          rows="1"
           type="text"
           placeholder="Type text or commands..."
           oninput={(e) => {
@@ -490,20 +491,21 @@
                 closeDocumentsList();
               } else {
                 mode = null;
-                keepFocus(inputElement);
+                keepFocus(omniboxElement);
               }
             } else if (mode === 'SEARCH' && e.key === 'Enter') {
               handleSearch();
             } else if (mode === 'INPUT' && e.key === 'Enter') {
               // Insert newline at current window selection position in omnibox
               if (editor) {
+                e.preventDefault(); // Prevent the browser from adding a second native newline
                 const target = e.target as HTMLInputElement;
                 const selectionStart = target.selectionStart ?? target.value.length;
                 const windowStart = editor.getWindowStartEnd()[0];
                 const insertPos = windowStart + selectionStart;
                 editor.splitLine(insertPos);
                 updatePreview();
-                keepFocus(inputElement);
+                keepFocus(omniboxElement);
               }
             } else if (mode === 'INPUT' && e.key === 'Backspace') {
               if (editor) {
@@ -514,7 +516,7 @@
                 if (selectionStart === 0 && selectionEnd === 0 && editor.windowIsAtLineStart) {
                   editor.mergeWithPreviousLine();
                   updatePreview();
-                  keepFocus(inputElement);
+                  keepFocus(omniboxElement);
                 }
               }
             }
