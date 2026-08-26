@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { db, type Document as DbDocument } from '$lib/db';
   import { MovingWindowEditor } from '$lib/movingWindowEditor';
-  import { StepBack, StepForward, Search, X, File, Trash, FilePlus, ClipboardCopy } from '@lucide/svelte';
+  import { StepBack, StepForward, Search, X, File, Trash, FilePlus, ClipboardCopy, Download } from '@lucide/svelte';
 
   let editorText = $state(''); // This will hold the full text for the preview
   let inputText = $state(''); // This will hold the value of the input field
@@ -202,6 +202,20 @@
     } catch (e) {
       console.error('Failed to copy document:', e);
     }
+  }
+
+  async function downloadCurrentDocument() {
+    if (!currentDocument) return;
+    const blob = new Blob([currentDocument.content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const fileName = currentDocument.name ? `${currentDocument.name}.txt` : 'Untitled.txt';
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   type HighlightSegment = { text: string; isMatch: boolean; start?: number };
@@ -406,6 +420,9 @@
         </button>
         <button class="button is-small" onclick={copyCurrentDocument}>
           <ClipboardCopy />
+        </button>
+        <button class="button is-small" onclick={downloadCurrentDocument}>
+          <Download />
         </button>
         <button class="button is-small is-danger" onclick={deleteCurrentDocument}>
           <Trash />
