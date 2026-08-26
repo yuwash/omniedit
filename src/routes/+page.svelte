@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { db, type Document as DbDocument } from '$lib/db';
   import { MovingWindowEditor } from '$lib/movingWindowEditor';
-  import { StepBack, StepForward, Search, X, File, Trash } from '@lucide/svelte';
+  import { StepBack, StepForward, Search, X, File, Trash, FilePlus } from '@lucide/svelte';
 
   let editorText = $state(''); // This will hold the full text for the preview
   let inputText = $state(''); // This will hold the value of the input field
@@ -171,6 +171,27 @@
   async function deleteCurrentDocument() {
     if (!currentDocument) return;
     currentDocumentMarkedForDeletion = true;
+  }
+
+  // New function to add a new document
+  async function addNewDocument() {
+    // Create a new document with empty content
+    const id = await db.documents.add({ name: '', content: '' });
+    const newDoc: DbDocument = { id, name: '', content: '' };
+    // Set as current document
+    currentDocument = newDoc;
+    currentDocumentName = '';
+    currentDocumentMarkedForDeletion = false;
+    editor = new MovingWindowEditor('', 0, 50, 100);
+    // Keep in DOCUMENTS mode so user can rename
+    mode = 'DOCUMENTS';
+    // Refresh document list to include the new one
+    await loadDocuments();
+    // Update UI
+    editorText = editor.getText();
+    inputText = editor.getWindow();
+    windowRange = editor.getWindowStartEnd();
+    keepFocus(inputElement);
   }
 
   type HighlightSegment = { text: string; isMatch: boolean; start?: number };
@@ -347,14 +368,8 @@
   />
 </svelte:head>
 
-<!-- 
-  Use a flexbox wrapper to fill the viewport height.
-  'vh-100' is custom, but we can use inline style for the outer container 
-  to ensure the app takes exactly the screen height.
--->
 <div class="is-flex is-flex-direction-column" style="height: 100vh; overflow: hidden;">
   
-  <!-- Header: Fixed height, tool button area -->
   <h1 class="title is-size-7 my-1 has-text-weight-normal">
     {title}
   </h1>
@@ -376,6 +391,9 @@
         <button class="button is-small" onclick={closeDocumentsList}>
           <X />
         </button>
+        <button class="button is-small" onclick={addNewDocument}>
+          <FilePlus />
+        </button>
         <button class="button is-small is-danger" onclick={deleteCurrentDocument}>
           <Trash />
         </button>
@@ -390,8 +408,6 @@
     </div>
   </nav>
 
-  <!-- Preview Area: Expands to fill all remaining space -->
-  <!-- mt-5 accounts for the fixed navbar height -->
   <main class="section p-3 is-flex-grow-1" style="overflow-y: auto;">
     <div class="content">
       {#if mode === 'SEARCH' || mode === 'INPUT' || mode === null}
@@ -420,7 +436,7 @@
         {/each}
       {:else if mode === 'DOCUMENTS'}
         {#each documents as doc}
-          {const isCurrent = currentDocument?.id === doc.id}
+          {const isCurrent = $derived(currentDocument?.id === doc.id)}
           {const docName = $derived(isCurrent ? currentDocumentName : doc.name)}
           <p class="document-with-preview">
             {#if isCurrent}{#if currentDocumentMarkedForDeletion}↶{:else}⬤{/if}{/if}
@@ -438,7 +454,6 @@
     </div>
   </main>
 
-  <!-- Omni Box: Fixed to bottom -->
   <footer class="px-3 pb-3 pt-2">
     <div class="field">
       <div class="control">
