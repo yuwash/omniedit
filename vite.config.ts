@@ -1,6 +1,7 @@
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   base: '/omniedit/',
@@ -28,6 +29,25 @@ export default defineConfig({
 					// Returning a path here will cause SvelteKit to redirect to that path
 					// instead of throwing an error. For this case, we just want to warn.
 				}
+			}
+		}),
+		VitePWA({
+			registerType: 'autoUpdate',
+			manifest: {
+				name: "Omniedit",
+				short_name: "Omniedit",
+				description: "Mobile-first extremely space-efficient text editor using an omnibox.",
+				icons: [
+					{
+						src: "/lucide-text-cursor-input.svg",
+						sizes: "256x256",
+						type: "image/svg+xml"
+					}
+				],
+				start_url: ".",
+				display: "standalone",
+				theme_color: "#4258ff",
+				background_color: "#ffffff"
 			}
 		})
 	],
