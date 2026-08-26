@@ -107,7 +107,11 @@ export class MovingWindowEditor {
         return this.moveCursorByWindowSize(delta - 1);
       } else if (lineEnd < this.text.length) {
         this.setCursor(lineEnd + 1);
-        return this.moveCursorByWindowSize(delta);
+        return this.moveCursorByWindowSize(
+          // If next line is empty, it’s already a full move, otherwise
+          // we still need the same delta.
+          this.text[this.cursor] === '\n' ? delta - 1 : delta
+        );
       } else {
         return;
       }
@@ -134,11 +138,10 @@ export class MovingWindowEditor {
 
   public mergeWithPreviousLine(): void {
     const previousLineEnd = this.text.lastIndexOf('\n', Math.max(0, this.cursor - 1));
-    const currentWindow = this.getWindow();
     const before = this.text.substring(0, previousLineEnd);  // Without the newline
     const after = this.text.substring(previousLineEnd + 1);
     this.text = before + (
-      (before[before.length - 1] === '\n' || after[0] === '\n') ? '' : ' '
+      (/[\n\s]$/.test(before) || /^[\n\s]/.test(after)) ? '' : ' '
     ) + after;
     this.setCursor(previousLineEnd);
   }
@@ -157,6 +160,8 @@ export class MovingWindowEditor {
     const after = this.text.substring(position);
     this.text = before + '\n' + after;
     this.setCursor(deletableTrailingSpace ? position -1 : position);
-    this.moveCursorByWindowSize(1);
+    this.moveCursorByWindowSize(
+      (this.start + 1 === this.cursor) ? 0 : 1
+    );
   }
 }
