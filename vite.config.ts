@@ -2,9 +2,10 @@ import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa'
+import { base } from '$app/paths';
 
 export default defineConfig({
-  base: '/omniedit/',
+  base,
 	plugins: [
 		sveltekit({
 			compilerOptions: {
@@ -39,12 +40,12 @@ export default defineConfig({
 				description: "Mobile-first extremely space-efficient text editor using an omnibox.",
 				icons: [
 					{
-						src: "/lucide-text-cursor-input.svg",
+						src: base + "/lucide-text-cursor-input.svg",
 						sizes: "256x256",
 						type: "image/svg+xml"
 					},
 					{
-						src: "/lucide-text-cursor-input-192.png",
+						src: base + "/lucide-text-cursor-input-192.png",
 						sizes: "192x192",
 						type: "image/png"
 					}
