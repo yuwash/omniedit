@@ -33,7 +33,9 @@ export function getRenderedSearchParagraphs(text: string, searchMatches: { start
   return paragraphs;
 }
 
-export function getRenderedDocumentsParagraphs(documents: Document[]): FormattedSegment[][] {
+import type { Document as DbDocument } from './db';
+
+export function getRenderedDocumentsParagraphs(documents: DbDocument[]): FormattedSegment[][] {
   // Show document list in preview area
   const paragraphs: FormattedSegment[][] = [[]];
   
