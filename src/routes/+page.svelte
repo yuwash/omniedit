@@ -12,18 +12,21 @@
   let editor = $state<MovingWindowEditor | null>(null);
   let editorText = $derived(editor ? editor.getText() : ''); // This will hold the full text for the preview
   let mode = $state<'INPUT' | 'SEARCH' | 'DOCUMENTS' | null>(null); // Tracks whether the omnibox is in INPUT, SEARCH, or DOCUMENTS mode
-  let title = $derived(currentDocumentName ? currentDocumentName + ' - Omniedit' : 'Omniedit');
   let searchMatches = $state<{ text: string; start: number; end: number }[]>([]);
   let searchQuery = $state('');
   let documents = $state<DbDocument[]>([]); // List of all documents
   let currentDocumentId = $state<number | null>(null);
-  let currentDocument = $derived<DbDocument | null>(documents.find((doc) => doc.id === currentDocumentId));
+  let currentDocument = $derived<DbDocument | null>(documents.find((doc) => doc.id === currentDocumentId) ?? null);
   let currentDocumentName = $derived(currentDocument ? currentDocument.name : '');
+  let title = $derived(currentDocumentName ? currentDocumentName + ' - Omniedit' : 'Omniedit');
   let currentDocumentMarkedForDeletion = $state(false); // New state to track deletion marking
 
   // Track textarea selection for cursor indicator
   let selectionStart = $state(0);
   let selectionEnd = $state(0);
+
+  // Track IME composition state (e.g. Japanese Kanji input conversion)
+  let isComposing = $state(false);
 
   // Keep the input focused to prevent keyboard flicker and layout shifts on mobile
   function keepFocus(element: HTMLTextAreaElement | null) {
@@ -261,7 +264,7 @@
     if (!editor) return;
     const documentChanged = currentDocument?.id !== doc.id;
 
-    if (currentDocumentMarkedForDeletion && currentDocument) {
+    if (currentDocumentMarkedForDeletion && currentDocument && currentDocumentId !== null) {
       if (documentChanged) {
         // Delete the currently marked document
         await db.documents.delete(currentDocumentId);
@@ -355,10 +358,19 @@
           class="textarea"
           rows="1"
           placeholder="Type text or commands..."
+          oncompositionstart={() => {
+            isComposing = true;
+          }}
+          oncompositionend={(e) => {
+            isComposing = false;
+            applyOmniboxInput();
+          }}
           oninput={(e) => {
+            if (isComposing) return;
             applyOmniboxInput();
           }}
           onkeydown={(e) => {
+            if (isComposing || e.isComposing) return;
             if (e.key === 'Escape') {
               if (mode === 'SEARCH') {
                 cancelSearch();
