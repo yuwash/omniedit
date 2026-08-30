@@ -81,6 +81,23 @@
     }
   }
 
+  function applyOmniboxInput() {
+    if (mode === 'SEARCH') {
+      searchQuery = omniboxElement.value;
+      handleSearch();
+    } else if (mode === 'DOCUMENTS') {
+      // Rename the current document
+      if (currentDocument) {
+        currentDocument.name = omniboxElement.value;
+      }
+    } else {
+      if (editor) {
+        editor.update(omniboxElement.value);
+        updatePreview();
+      }
+    }
+  }
+
   function stepBack() {
     if (editor) {
       editor.moveCursorByWindowSize(-1);
@@ -339,21 +356,7 @@
           rows="1"
           placeholder="Type text or commands..."
           oninput={(e) => {
-            const target = e.target as HTMLTextAreaElement;
-            if (mode === 'SEARCH') {
-              searchQuery = target.value;
-              handleSearch();
-            } else if (mode === 'DOCUMENTS') {
-              // Rename the current document
-              if (currentDocument) {
-                currentDocument.name = target.value;
-              }
-            } else {
-              if (editor) {
-                editor.update(target.value);
-                updatePreview();
-              }
-            }
+            applyOmniboxInput();
           }}
           onkeydown={(e) => {
             if (e.key === 'Escape') {
