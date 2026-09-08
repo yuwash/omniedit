@@ -109,4 +109,31 @@ describe('MovingWindowEditor', () => {
     expect(end3).toBe(5);
     expect(editor.getWindow()).toBe("abcde");
   });
+
+  it('should track window start shift when editing in the middle of text', () => {
+    // Exact user scenario from problem description with windowSize = 50
+    const initialText = "text 1 text 2 text 3 text 4 text 5 text 6 text 7 text 8";
+    // Set cursor near end
+    const editor = new MovingWindowEditor(initialText, initialText.length, 50, 100);
+    expect(editor.getWindow()).toBe("1 text 2 text 3 text 4 text 5 text 6 text 7 text 8");
+    const [oldStart, oldCursor] = editor.getWindowStartEnd();
+
+    // User types " t" right after "7" in the window "1 text 2 text 3 text 4 text 5 text 6 text 7"
+    // In window "1 text 2 text 3 text 4 text 5 text 6 text 7 text 8", position after "7" is index 49 (selection cursor = 49)
+    const windowTextBeforeEdit = editor.getWindow();
+    const posAfter7InWindow = windowTextBeforeEdit.indexOf('7') + 1; // 49
+    const newWindowText = windowTextBeforeEdit.substring(0, posAfter7InWindow) + " t" + windowTextBeforeEdit.substring(posAfter7InWindow);
+
+    editor.update(newWindowText);
+
+    const [newStart, newCursor] = editor.getWindowStartEnd();
+    expect(editor.getWindow()).toBe("text 2 text 3 text 4 text 5 text 6 text 7 t text 8");
+
+    const deltaStart = newStart - oldStart; // 7
+    const originalSelection = posAfter7InWindow + 2; // 51 (after typing " t")
+    const adjustedSelection = originalSelection - deltaStart; // 51 - 7 = 44
+
+    // Ensure adjustedSelection points to index right after 't' in the new window
+    expect(editor.getWindow().substring(0, adjustedSelection)).toBe("text 2 text 3 text 4 text 5 text 6 text 7 t");
+  });
 });
