@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { db, type Document as DbDocument } from '$lib/db';
   import { MovingWindowEditor } from '$lib/movingWindowEditor';
   import { getRenderedSearchParagraphs, getRenderedInputParagraphs, getRenderedDocumentsParagraphs } from '$lib/segmentation';
@@ -84,7 +84,7 @@
     }
   }
 
-  function applyOmniboxInput() {
+  async function applyOmniboxInput() {
     if (mode === 'SEARCH') {
       searchQuery = omniboxElement.value;
       handleSearch();
@@ -95,8 +95,24 @@
       }
     } else {
       if (editor) {
+        const oldStart = editor.getWindowStartEnd()[0];
+        const selStart = omniboxElement ? omniboxElement.selectionStart : 0;
+        const selEnd = omniboxElement ? omniboxElement.selectionEnd : 0;
+
         editor.update(omniboxElement.value);
         updatePreview();
+
+        const newStart = editor.getWindowStartEnd()[0];
+        const deltaStart = newStart - oldStart;
+
+        if (deltaStart !== 0 && omniboxElement) {
+          await tick();
+          const maxLen = omniboxElement.value.length;
+          const newSelStart = Math.max(0, Math.min(maxLen, selStart - deltaStart));
+          const newSelEnd = Math.max(0, Math.min(maxLen, selEnd - deltaStart));
+          omniboxElement.setSelectionRange(newSelStart, newSelEnd);
+          updateSelection();
+        }
       }
     }
   }
