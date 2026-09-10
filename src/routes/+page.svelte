@@ -319,7 +319,7 @@
   />
 </svelte:head>
 
-<div class="is-flex is-flex-direction-column" style="height: 100vh; overflow: hidden;">
+<div class="is-flex is-flex-direction-column" style="min-height: 100vh;">
   
   <h1 class="title is-size-7 my-1 has-text-weight-normal">
     {title}
