@@ -11,7 +11,7 @@
   let omniboxElement: HTMLTextAreaElement;
   let editor = $state<MovingWindowEditor | null>(null);
   let editorText = $derived(editor ? editor.getText() : ''); // This will hold the full text for the preview
-  let mode = $state<'INPUT' | 'SEARCH' | 'DOCUMENTS' | null>(null); // Tracks whether the omnibox is in INPUT, SEARCH, or DOCUMENTS mode
+  let mode = $state<'INPUT' | 'SEARCH' | 'DOCUMENTS' | 'PARAGRAPH' | null>(null); // Tracks whether the omnibox is in INPUT, SEARCH, or DOCUMENTS mode
   let searchMatches = $state<{ text: string; start: number; end: number }[]>([]);
   let searchQuery = $state('');
   let documents = $state<DbDocument[]>([]); // List of all documents
@@ -20,6 +20,8 @@
   let currentDocumentName = $derived(currentDocument ? currentDocument.name : '');
   let title = $derived(currentDocumentName ? currentDocumentName + ' - Omniedit' : 'Omniedit');
   let currentDocumentMarkedForDeletion = $state(false); // New state to track deletion marking
+  let paragraphStart = $state<number | null>(null); // Track paragraph start position for paragraph mode
+  let paragraphEnd = $state<number | null>(null); // Track paragraph end position for paragraph mode
 
   // Track textarea selection for cursor indicator
   let selectionStart = $state(0);
@@ -93,6 +95,14 @@
       if (currentDocument) {
         currentDocument.name = omniboxElement.value;
       }
+    } else if (mode === 'PARAGRAPH') {
+      // Update the paragraph content
+      if (editor && paragraphStart !== null && paragraphEnd !== null) {
+        const newParagraphText = omniboxElement.value;
+        editor.replaceRange(paragraphStart, paragraphEnd, newParagraphText);
+        paragraphEnd = paragraphStart + newParagraphText.length;
+        updatePreview();
+      }
     } else {
       if (editor) {
         const oldStart = editor.getWindowStartEnd()[0];
@@ -136,7 +146,9 @@
   function updatePreview() {
     if (editor) {
       editorText = editor.getText();
-      inputText = editor.getWindow();
+      if (mode !== 'PARAGRAPH') {
+        inputText = editor.getWindow();
+      }
       windowRange = editor.getWindowStartEnd();
     }
   }
@@ -273,6 +285,9 @@
     if (mode === 'DOCUMENTS') {
       return getRenderedDocumentsParagraphs(documents);
     }
+    if (mode === 'PARAGRAPH' && paragraphStart !== null && paragraphEnd !== null) {
+      return getRenderedInputParagraphs(editorText, [paragraphStart, paragraphEnd]);
+    }
     return getRenderedInputParagraphs(editorText, windowRange);
   }
 
@@ -307,6 +322,40 @@
     mode = 'INPUT';
     keepFocus(omniboxElement);
   }
+
+  // Paragraph Mode functions
+  function enterParagraphMode(paragraphIndex: number) {
+    if (!editor) return;
+
+    const fullText = editor.getText();
+    const paragraphs = fullText.split('\n');
+    if (paragraphIndex < 0 || paragraphIndex >= paragraphs.length) return;
+
+    let start = 0;
+    for (let i = 0; i < paragraphIndex; i++) {
+      start += paragraphs[i].length + 1; // +1 for newline
+    }
+    const paragraphText = paragraphs[paragraphIndex];
+    const end = start + paragraphText.length;
+
+    paragraphStart = start;
+    paragraphEnd = end;
+    inputText = paragraphText;
+    mode = 'PARAGRAPH';
+    keepFocus(omniboxElement);
+  }
+
+  function exitParagraphMode() {
+    const targetCursor = paragraphEnd;
+    mode = 'INPUT';
+    paragraphStart = null;
+    paragraphEnd = null;
+    if (editor && targetCursor !== null) {
+      editor.setCursor(targetCursor);
+    }
+    updatePreview();
+    keepFocus(omniboxElement);
+  }
 </script>
 
 <svelte:head>
@@ -336,6 +385,10 @@
       {/if}
       {#if mode === 'SEARCH'}
         <button class="button is-small" onclick={cancelSearch}>
+          <X />
+        </button>
+      {:else if mode === 'PARAGRAPH'}
+        <button class="button is-small" onclick={exitParagraphMode}>
           <X />
         </button>
       {:else if mode === 'DOCUMENTS'}
@@ -392,6 +445,8 @@
                 cancelSearch();
               } else if (mode === 'DOCUMENTS') {
                 closeDocumentsList();
+              } else if (mode === 'PARAGRAPH') {
+                exitParagraphMode();
               } else {
                 mode = null;
                 keepFocus(omniboxElement);
@@ -429,29 +484,55 @@
       </div>
     </div>
     <div class="content">
-      {#if mode === 'SEARCH' || mode === 'INPUT' || mode === null}
-        {#each getRenderedParagraphs() as paragraph}
-          <p class="pre-wrap">
-            {#if paragraph.length === 0}
-              <br />
-            {:else}
-              {#each paragraph as seg}
-                {#if seg.type === 'match'}
-                  <button
-                    type="button"
-                    class="button is-text p-0 is-inline border-0 text-left font-weight-bold style-match-button"
-                    onclick={() => selectMatch(seg.start)}
-                  >
+      {#if mode === 'SEARCH' || mode === 'INPUT' || mode === 'PARAGRAPH' || mode === null}
+        {#each getRenderedParagraphs() as paragraph, pIndex}
+          {#if mode === 'INPUT' || mode === 'PARAGRAPH'}
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+            <p class="pre-wrap" onclick={() => enterParagraphMode(pIndex)} style="cursor: pointer;">
+              {#if paragraph.length === 0}
+                <br />
+              {:else}
+                {#each paragraph as seg}
+                  {#if seg.type === 'match'}
+                    <button
+                      type="button"
+                      class="button is-text p-0 is-inline border-0 text-left font-weight-bold style-match-button"
+                      onclick={() => selectMatch(seg.start)}
+                    >
+                      <strong>{seg.text}</strong>
+                    </button>
+                  {:else if seg.type === 'strong'}
                     <strong>{seg.text}</strong>
-                  </button>
-                {:else if seg.type === 'strong'}
-                  <strong>{seg.text}</strong>
-                {:else}
-                  {seg.text}
-                {/if}
-              {/each}
-            {/if}
-          </p>
+                  {:else}
+                    {seg.text}
+                  {/if}
+                {/each}
+              {/if}
+            </p>
+          {:else}
+            <p class="pre-wrap">
+              {#if paragraph.length === 0}
+                <br />
+              {:else}
+                {#each paragraph as seg}
+                  {#if seg.type === 'match'}
+                    <button
+                      type="button"
+                      class="button is-text p-0 is-inline border-0 text-left font-weight-bold style-match-button"
+                      onclick={() => selectMatch(seg.start)}
+                    >
+                      <strong>{seg.text}</strong>
+                    </button>
+                  {:else if seg.type === 'strong'}
+                    <strong>{seg.text}</strong>
+                  {:else}
+                    {seg.text}
+                  {/if}
+                {/each}
+              {/if}
+            </p>
+          {/if}
         {/each}
       {:else if mode === 'DOCUMENTS'}
         {#each documents as doc}
@@ -483,5 +564,11 @@
   .pre-wrap {
     /* Visible leading whitespaces */
     white-space: pre-wrap;
+  }
+  
+  /* Add hover effect for clickable paragraphs */
+  p.pre-wrap:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+    transition: background-color 0.2s ease;
   }
 </style>

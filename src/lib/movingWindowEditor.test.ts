@@ -136,4 +136,17 @@ describe('MovingWindowEditor', () => {
     // Ensure adjustedSelection points to index right after 't' in the new window
     expect(editor.getWindow().substring(0, adjustedSelection)).toBe("text 2 text 3 text 4 text 5 text 6 text 7 t");
   });
+
+  it('should replace a range of text correctly with replaceRange', () => {
+    const text = "First paragraph.\nSecond paragraph.\nThird paragraph.";
+    const editor = new MovingWindowEditor(text, text.length);
+
+    // Replace "Second paragraph." (start index 17, end index 34)
+    const secondStart = 17;
+    const secondEnd = 34;
+    editor.replaceRange(secondStart, secondEnd, "Modified second paragraph.");
+
+    expect(editor.getText()).toBe("First paragraph.\nModified second paragraph.\nThird paragraph.");
+    expect(editor.getWindowStartEnd()[1]).toBe(secondStart + "Modified second paragraph.".length);
+  });
 });
