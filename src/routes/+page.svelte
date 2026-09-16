@@ -4,7 +4,7 @@
   import { MovingWindowEditor } from '$lib/movingWindowEditor';
   import { getRenderedSearchParagraphs, getRenderedInputParagraphs, getRenderedDocumentsParagraphs } from '$lib/segmentation';
   import type { FormattedSegment } from '$lib/segmentation';
-  import { StepBack, StepForward, Search, X, File, Trash, FilePlus, ClipboardCopy, Download } from '@lucide/svelte';
+  import { StepBack, StepForward, Search, X, File, Trash, FilePlus, ClipboardCopy, Download, ArrowUpToLine, ArrowDownToLine } from '@lucide/svelte';
 
   let inputText = $state(''); // This will hold the value of the input field
   let windowRange = $state<[number, number]>([0, 0]); // Track current window bounds reactively
@@ -323,6 +323,28 @@
     keepFocus(omniboxElement);
   }
 
+  function getParagraphIndexForOffset(text: string, offset: number): number {
+    let currentPos = 0;
+    const paragraphs = text.split('\n');
+    for (let i = 0; i < paragraphs.length; i++) {
+      const pLength = paragraphs[i].length;
+      if (offset >= currentPos && offset <= currentPos + pLength) {
+        return i;
+      }
+      currentPos += pLength + 1; // +1 for newline
+    }
+    return paragraphs.length - 1;
+  }
+
+  let currentParagraphIndex = $derived(
+    editor
+      ? getParagraphIndexForOffset(
+          editor.getText(),
+          mode === 'PARAGRAPH' && paragraphStart !== null ? paragraphStart : windowRange[0]
+        )
+      : 0
+  );
+
   // Paragraph Mode functions
   function enterParagraphMode(paragraphIndex: number) {
     if (!editor) return;
@@ -341,6 +363,36 @@
     paragraphStart = start;
     paragraphEnd = end;
     inputText = paragraphText;
+    mode = 'PARAGRAPH';
+    keepFocus(omniboxElement);
+  }
+
+  function expandParagraphMode(clickedIndex: number) {
+    if (!editor) return;
+    const fullText = editor.getText();
+    const paragraphs = fullText.split('\n');
+    if (clickedIndex < 0 || clickedIndex >= paragraphs.length) return;
+
+    let prevCurrentIndex = currentParagraphIndex;
+
+    const startIdx = Math.min(clickedIndex, prevCurrentIndex);
+    const endIdx = Math.max(clickedIndex, prevCurrentIndex);
+
+    let startOffset = 0;
+    for (let i = 0; i < startIdx; i++) {
+      startOffset += paragraphs[i].length + 1;
+    }
+
+    let endOffset = startOffset;
+    for (let i = startIdx; i <= endIdx; i++) {
+      endOffset += paragraphs[i].length + (i < endIdx ? 1 : 0);
+    }
+
+    const combinedText = paragraphs.slice(startIdx, endIdx + 1).join('\n');
+
+    paragraphStart = startOffset;
+    paragraphEnd = endOffset;
+    inputText = combinedText;
     mode = 'PARAGRAPH';
     keepFocus(omniboxElement);
   }
@@ -489,7 +541,20 @@
           {#if mode === 'INPUT' || mode === 'PARAGRAPH'}
             <!-- svelte-ignore a11y_click_events_have_key_events -->
             <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-            <p class="pre-wrap" onclick={() => enterParagraphMode(pIndex)} style="cursor: pointer;">
+            <p class="pre-wrap" style="position: relative; padding-left: 1.5rem; cursor: pointer;" onclick={() => enterParagraphMode(pIndex)}>
+              {#if pIndex < currentParagraphIndex}
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <span class="paragraph-start-icon" onclick={(e) => { e.stopPropagation(); expandParagraphMode(pIndex); }}>
+                  <ArrowUpToLine />
+                </span>
+              {:else if pIndex > currentParagraphIndex}
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <span class="paragraph-start-icon" onclick={(e) => { e.stopPropagation(); expandParagraphMode(pIndex); }}>
+                  <ArrowDownToLine />
+                </span>
+              {/if}
               {#if paragraph.length === 0}
                 <br />
               {:else}
@@ -556,6 +621,10 @@
 </div>
 
 <style>
+  .paragraph-start-icon :global(.lucide-icon) {
+    width: 1em;
+    height: 1em;
+  }
   .document-with-preview {
     white-space: nowrap;
     overflow: hidden;
