@@ -129,6 +129,16 @@ export class MovingWindowEditor {
     this.setCursor(this.start + newWindowText.length);
   }
 
+  public replaceRange(start: number, end: number, newText: string): void {
+    const validStart = Math.max(0, Math.min(start, this.text.length));
+    const validEnd = Math.max(validStart, Math.min(end, this.text.length));
+    const before = this.text.substring(0, validStart);
+    const after = this.text.substring(validEnd);
+
+    this.text = before + newText + after;
+    this.setCursor(validStart + newText.length);
+  }
+
   public get windowIsAtLineStart(): boolean {
     return (
       this.start === 0
