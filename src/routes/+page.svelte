@@ -143,13 +143,19 @@
     }
   }
 
-  function updatePreview() {
+  async function updatePreview(cursorPos?: number) {
     if (editor) {
       editorText = editor.getText();
       if (mode !== 'PARAGRAPH') {
         inputText = editor.getWindow();
       }
       windowRange = editor.getWindowStartEnd();
+      await tick();
+      if (omniboxElement && mode !== 'PARAGRAPH') {
+        const targetPos = cursorPos ?? (windowRange[1] - windowRange[0]);
+        omniboxElement.setSelectionRange(targetPos, targetPos);
+        updateSelection();
+      }
     }
   }
 
