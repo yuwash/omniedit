@@ -149,4 +149,76 @@ describe('MovingWindowEditor', () => {
     expect(editor.getText()).toBe("First paragraph.\nModified second paragraph.\nThird paragraph.");
     expect(editor.getWindowStartEnd()[1]).toBe(secondStart + "Modified second paragraph.".length);
   });
+
+  it('should handle newline insertion and step back when subsequent lines exist', () => {
+    const editor = new MovingWindowEditor("");
+    editor.update("AB");
+    expect(editor.getWindow()).toBe("AB");
+    expect(editor.getWindowStartEnd()).toEqual([0, 2]);
+
+    // Split line after "AB"
+    editor.splitLine(2);
+    expect(editor.getText()).toBe("AB\n");
+    expect(editor.getWindow()).toBe("");
+    expect(editor.getWindowStartEnd()).toEqual([3, 3]);
+
+    // Step back to "AB"
+    editor.moveCursorByWindowSize(-1);
+    expect(editor.getWindow()).toBe("AB");
+    expect(editor.getWindowStartEnd()).toEqual([0, 2]);
+
+    // Split line after "AB" again (now existing empty line follows "AB")
+    editor.splitLine(2);
+    expect(editor.getText()).toBe("AB\n\n");
+    expect(editor.getWindow()).toBe("");
+    expect(editor.getWindowStartEnd()).toEqual([3, 3]);
+
+    // Step forward to last line, then merge back
+    editor.moveCursorByWindowSize(1);
+    expect(editor.getWindowStartEnd()).toEqual([4, 4]);
+
+    editor.mergeWithPreviousLine();
+    expect(editor.getText()).toBe("AB\n");
+    expect(editor.getWindowStartEnd()).toEqual([3, 3]);
+
+    editor.mergeWithPreviousLine();
+    expect(editor.getText()).toBe("AB");
+    expect(editor.getWindow()).toBe("AB");
+    expect(editor.getWindowStartEnd()).toEqual([0, 2]);
+
+    // Split line again
+    editor.splitLine(2);
+    expect(editor.getText()).toBe("AB\n");
+
+    // Step back to "AB"
+    editor.moveCursorByWindowSize(-1);
+    expect(editor.getWindow()).toBe("AB");
+    expect(editor.getWindowStartEnd()).toEqual([0, 2]);
+
+    // Split line at end of "AB"
+    editor.splitLine(2);
+    expect(editor.getText()).toBe("AB\n\n");
+    expect(editor.getWindow()).toBe("");
+    expect(editor.getWindowStartEnd()).toEqual([3, 3]);
+
+    // Step back
+    editor.moveCursorByWindowSize(-1);
+    expect(editor.getWindow()).toBe("AB");
+    expect(editor.getWindowStartEnd()).toEqual([0, 2]);
+    expect(editor.getWindow().includes('\n')).toBe(false);
+  });
+
+  it('should handle leading newline and cursor at position 0 correctly', () => {
+    const editor = new MovingWindowEditor("\nAB", 0);
+    expect(editor.getWindowStartEnd()).toEqual([0, 0]);
+    expect(editor.getWindow()).toBe("");
+
+    editor.moveCursorByWindowSize(-1);
+    expect(editor.getWindowStartEnd()).toEqual([0, 0]);
+    expect(editor.getWindow()).toBe("");
+
+    editor.moveCursorByWindowSize(1);
+    expect(editor.getWindowStartEnd()).toEqual([1, 3]);
+    expect(editor.getWindow()).toBe("AB");
+  });
 });

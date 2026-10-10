@@ -18,9 +18,16 @@ export class MovingWindowEditor {
     this.calculateStart();
   }
 
+  private getLastNewlineBefore(pos: number): number {
+    if (pos <= 0) {
+      return -1;
+    }
+    return this.text.lastIndexOf('\n', pos - 1);
+  }
+
   private calculateStart(): void {
     // Find the start of the line containing the cursor
-    const lineStart = this.text.lastIndexOf('\n', this.cursor - 1) + 1;
+    const lineStart = this.getLastNewlineBefore(this.cursor) + 1;
 
     // Ideal start is windowSize characters behind the cursor, but not before lineStart
     let idealStart = Math.max(lineStart, this.cursor - this.windowSize);
@@ -79,7 +86,7 @@ export class MovingWindowEditor {
     }
 
     if (delta < 0) {
-      const lineStart = this.text.lastIndexOf('\n', Math.max(0, this.cursor - 1)) + 1;
+      const lineStart = this.getLastNewlineBefore(this.cursor) + 1;
       if (this.start > lineStart) {
         this.setCursor(this.start);
         return this.moveCursorByWindowSize(delta + 1);
@@ -147,7 +154,7 @@ export class MovingWindowEditor {
   }
 
   public mergeWithPreviousLine(): void {
-    const previousLineEnd = this.text.lastIndexOf('\n', Math.max(0, this.cursor - 1));
+    const previousLineEnd = this.getLastNewlineBefore(this.cursor);
     if (previousLineEnd < 0) {
       // No previous line, nothing to merge
       return;
@@ -155,7 +162,7 @@ export class MovingWindowEditor {
     const before = this.text.substring(0, previousLineEnd);  // Without the newline
     const after = this.text.substring(previousLineEnd + 1);
     this.text = before + (
-      (/[\n\s]$/.test(before) || /^[\n\s]/.test(after)) ? '' : ' '
+      (!before || !after || /[\n\s]$/.test(before) || /^[\n\s]/.test(after)) ? '' : ' '
     ) + after;
     this.setCursor(previousLineEnd);
   }
@@ -173,9 +180,7 @@ export class MovingWindowEditor {
     );
     const after = this.text.substring(position);
     this.text = before + '\n' + after;
-    this.setCursor(deletableTrailingSpace ? position -1 : position);
-    this.moveCursorByWindowSize(
-      (this.start + 1 === this.cursor) ? 0 : 1
-    );
+    this.setCursor(deletableTrailingSpace ? position - 1 : position);
+    this.moveCursorByWindowSize(1);
   }
 }
